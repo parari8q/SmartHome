@@ -1342,7 +1342,7 @@
       const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
       if (!res.ok) {
         const body = await res.text();
-        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+        throw new Error("HTTP " + res.status + " playlist.id=" + playlist.id + " " + body.slice(0, 150));
       }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
