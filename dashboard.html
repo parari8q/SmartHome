@@ -247,39 +247,160 @@
     #icon-wrap { width: clamp(70px, 22vw, 120px); height: clamp(70px, 22vw, 120px); }
   }
 
+  /* --- ekran pogody jako wlasciwy "home", caly uklad bez zmian --- */
+
+  #home-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- podpowiedz "przesun w gore", maly pulsujacy uchwyt na dole --- */
+
+  #swipe-hint {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    padding-top: clamp(6px, 1vh, 10px);
+  }
+
+  #swipe-hint button {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    width: 44px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(245,247,250,0.5);
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+
+  #swipe-hint svg { width: 16px; height: 16px; }
+
+  /* --- nakladka menu, wjezdza od dolu --- */
+
+  #menu-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #0b0e14 0%, #171c26 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 10;
+  }
+
+  #menu-view.open { transform: translateY(0); }
+
+  #menu-close {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.5);
+    padding-bottom: clamp(10px, 2vh, 18px);
+  }
+
+  #menu-close svg { width: 20px; height: 20px; }
+
+  #menu-title {
+    flex: 0 0 auto;
+    font-size: clamp(13px, 2.4vh, 15px);
+    color: rgba(245,247,250,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: clamp(10px, 2vh, 18px);
+  }
+
+  #tile-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-auto-rows: minmax(90px, 1fr);
+    gap: clamp(10px, 2vw, 18px);
+    align-content: start;
+  }
+
+  .tile {
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    color: #f5f7fa;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  .tile:active { transform: scale(0.95); }
+
+  .tile .tile-icon { width: clamp(28px, 5vh, 36px); height: clamp(28px, 5vh, 36px); }
+  .tile .tile-icon svg { width: 100%; height: 100%; }
+
+  .tile .tile-label {
+    font-size: clamp(12px, 2.2vh, 14px);
+    font-weight: 500;
+  }
+
 </style>
 </head>
 <body>
 
-  <div id="error-banner"></div>
+  <div id="home-view">
 
-  <div id="container">
+    <div id="error-banner"></div>
 
-    <div id="col-clock">
-      <div id="clock">--:--</div>
-      <div id="date">-</div>
-    </div>
+    <div id="container">
 
-    <div id="col-main">
-      <div id="icon-wrap"></div>
-      <div id="main-text">
-        <div id="temp">--<span class="deg">°</span></div>
-        <div id="condition">Ładowanie…</div>
-        <div id="location"></div>
+      <div id="col-clock">
+        <div id="clock">--:--</div>
+        <div id="date">-</div>
       </div>
+
+      <div id="col-main">
+        <div id="icon-wrap"></div>
+        <div id="main-text">
+          <div id="temp">--<span class="deg">°</span></div>
+          <div id="condition">Ładowanie…</div>
+          <div id="location"></div>
+        </div>
+      </div>
+
+      <div id="col-stats">
+        <div class="stat"><div class="label">Odczuwalna</div><div class="value" id="stat-feels">--°</div></div>
+        <div class="stat"><div class="label">Wilgotność</div><div class="value" id="stat-humidity">--%</div></div>
+        <div class="stat"><div class="label">Wiatr</div><div class="value" id="stat-wind">-- km/h</div></div>
+        <div class="stat"><div class="label">Zachód</div><div class="value" id="stat-sunset">--:--</div></div>
+      </div>
+
     </div>
 
-    <div id="col-stats">
-      <div class="stat"><div class="label">Odczuwalna</div><div class="value" id="stat-feels">--°</div></div>
-      <div class="stat"><div class="label">Wilgotność</div><div class="value" id="stat-humidity">--%</div></div>
-      <div class="stat"><div class="label">Wiatr</div><div class="value" id="stat-wind">-- km/h</div></div>
-      <div class="stat"><div class="label">Zachód</div><div class="value" id="stat-sunset">--:--</div></div>
+    <div id="hourly"></div>
+    <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
+
+    <div id="swipe-hint">
+      <button type="button" onclick="openMenu()" aria-label="Otwórz menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+      </button>
     </div>
 
   </div>
 
-  <div id="hourly"></div>
-  <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
+  <div id="menu-view">
+    <button id="menu-close" type="button" onclick="closeMenu()" aria-label="Zamknij menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 9 12 15 6 9"/></svg>
+    </button>
+    <div id="menu-title">Menu</div>
+    <div id="tile-grid"></div>
+  </div>
 
 <script>
 
@@ -293,6 +414,35 @@
     refreshMinutes: 10          // co ile minut odświeżać dane
   };
   // ==========================================================================
+
+  // ==========================================================================
+  // KAFELKI MENU — żeby dodać kolejny skrót, dopisz nowy obiekt do tej listy.
+  // "action: 'home'" = zamyka menu i wraca do pogody (bez przeładowania strony).
+  // "url: '...'"      = otwiera podaną stronę (przeglądarka nawiguje tam w całości).
+  // ==========================================================================
+  const TILES = [
+    {
+      id: "youtube",
+      label: "YouTube",
+      url: "https://m.youtube.com",
+      background: "linear-gradient(135deg, #e0453f, #a83530)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><polygon points="10 9 15 12 10 15" fill="currentColor" stroke="none"/></svg>`
+    },
+    {
+      id: "spotify",
+      label: "Spotify",
+      url: "https://open.spotify.com",
+      background: "linear-gradient(135deg, #3fae63, #2c8049)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M7 10c4-1 8-0.5 11 1.2"/><path d="M7.5 13c3-0.8 6.5-0.4 9 1"/><path d="M8 16c2.3-0.6 5-0.3 7 0.7"/></svg>`
+    },
+    {
+      id: "home",
+      label: "Pogoda",
+      action: "home",
+      background: "linear-gradient(135deg, #3b7bc4, #245a9c)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.9 6 6 0 0 1 11.4-2A5 5 0 0 1 19 15H4z"/><line x1="9" y1="19" x2="9" y2="21"/><line x1="13" y1="19" x2="13" y2="21"/></svg>`
+    }
+  ];
 
   const WEATHER_CODES = {
     0:  { text: "Bezchmurnie", cat: "clear" },
@@ -488,7 +638,57 @@
     if (document.visibilityState === "visible") keepScreenAwake();
   });
 
+  function renderMenu() {
+    const grid = document.getElementById("tile-grid");
+    grid.innerHTML = "";
+    TILES.forEach(tile => {
+      const el = document.createElement(tile.url ? "a" : "button");
+      el.className = "tile";
+      el.style.background = tile.background;
+      if (tile.url) {
+        el.href = tile.url;
+      } else {
+        el.type = "button";
+        el.addEventListener("click", () => { if (tile.action === "home") closeMenu(); });
+      }
+      el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
+      grid.appendChild(el);
+    });
+  }
+
+  function openMenu() {
+    document.getElementById("menu-view").classList.add("open");
+  }
+
+  function closeMenu() {
+    document.getElementById("menu-view").classList.remove("open");
+  }
+
+  // Obsluga gestu przesuniecia palcem: w gore na ekranie pogody otwiera menu,
+  // w dol na menu je zamyka. Dziala rownolegle z przyciskami-strzalkami,
+  // ktore sa awaryjnym sposobem sterowania, gdyby gest nie zadzialal w danej przegladarce.
+  let touchStartY = null;
+  const SWIPE_THRESHOLD = 60;
+
+  document.addEventListener("touchstart", (e) => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (touchStartY === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY;
+    const menuOpen = document.getElementById("menu-view").classList.contains("open");
+
+    if (!menuOpen && deltaY < -SWIPE_THRESHOLD) {
+      openMenu();
+    } else if (menuOpen && deltaY > SWIPE_THRESHOLD) {
+      closeMenu();
+    }
+    touchStartY = null;
+  }, { passive: true });
+
   // Start
+  renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
   fetchWeather();
