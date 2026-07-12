@@ -446,6 +446,109 @@
   #spotify-controls .btn-sm { width: clamp(34px, 6vh, 44px); height: clamp(34px, 6vh, 44px); padding: 9px; }
   #spotify-controls .btn-lg { width: clamp(48px, 8vh, 60px); height: clamp(48px, 8vh, 60px); padding: 13px; background: #3fae63; color: #0b140e; }
 
+  #spotify-search-btn {
+    position: absolute;
+    top: clamp(14px, 2.5vh, 26px);
+    right: clamp(20px, 3vw, 40px);
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 50%;
+    width: clamp(34px, 6vh, 40px);
+    height: clamp(34px, 6vh, 40px);
+    padding: 8px;
+    color: #f5f7fa;
+  }
+
+  #spotify-search-btn svg { width: 100%; height: 100%; }
+
+  #spotify-search-section {
+    display: none;
+    flex-direction: column;
+    width: min(90vw, 480px);
+    height: 100%;
+    gap: clamp(8px, 1.5vh, 14px);
+    padding-top: clamp(30px, 5vh, 50px);
+  }
+
+  #spotify-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+
+  #spotify-search-bar button {
+    background: none;
+    border: none;
+    color: #f5f7fa;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+  }
+
+  #spotify-search-bar button svg { width: 100%; height: 100%; }
+
+  #spotify-search-input {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  #spotify-search-input::placeholder { color: rgba(245,247,250,0.4); }
+
+  #spotify-search-results {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .search-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    padding: 6px;
+    border-radius: 10px;
+    color: #f5f7fa;
+    text-align: left;
+  }
+
+  .search-result:active { background: rgba(255,255,255,0.08); }
+
+  .search-result img {
+    width: clamp(34px, 6vh, 42px);
+    height: clamp(34px, 6vh, 42px);
+    border-radius: 6px;
+    flex: 0 0 auto;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .search-result .sr-text { min-width: 0; }
+
+  .search-result .sr-title {
+    font-size: clamp(12px, 2.2vh, 14px);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-result .sr-artist {
+    font-size: clamp(11px, 2vh, 12px);
+    color: rgba(245,247,250,0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
 </style>
 </head>
 <body>
@@ -507,21 +610,39 @@
       <button id="spotify-login-btn" type="button" onclick="startSpotifyLogin()">Zaloguj się do Spotify</button>
     </div>
 
-    <div id="spotify-logged-in" style="display:none; flex-direction: column; align-items: center; gap: inherit;">
-      <img id="spotify-art" alt="" style="display:none" onerror="this.style.display='none'">
-      <div id="spotify-track">—</div>
-      <div id="spotify-artist">—</div>
-      <div id="spotify-controls">
-        <button class="btn-sm" type="button" onclick="spotifyPrevious()" aria-label="Poprzedni">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6L9 12l11 6z"/></svg>
-        </button>
-        <button class="btn-lg" id="spotify-playpause" type="button" onclick="spotifyTogglePlay()" aria-label="Odtwórz/Pauza">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <button class="btn-sm" type="button" onclick="spotifyNext()" aria-label="Następny">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l11 6-11 6z"/></svg>
-        </button>
+    <div id="spotify-logged-in" style="display:none; flex-direction: column; align-items: center; gap: inherit; position: relative; width: 100%; height: 100%;">
+
+      <button id="spotify-search-btn" type="button" onclick="openSpotifySearch()" aria-label="Szukaj">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+
+      <div id="spotify-player-section" style="display:flex; flex-direction: column; align-items: center; gap: inherit;">
+        <img id="spotify-art" alt="" style="display:none" onerror="this.style.display='none'">
+        <div id="spotify-track">—</div>
+        <div id="spotify-artist">—</div>
+        <div id="spotify-controls">
+          <button class="btn-sm" type="button" onclick="spotifyPrevious()" aria-label="Poprzedni">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6L9 12l11 6z"/></svg>
+          </button>
+          <button class="btn-lg" id="spotify-playpause" type="button" onclick="spotifyTogglePlay()" aria-label="Odtwórz/Pauza">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="btn-sm" type="button" onclick="spotifyNext()" aria-label="Następny">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l11 6-11 6z"/></svg>
+          </button>
+        </div>
       </div>
+
+      <div id="spotify-search-section">
+        <div id="spotify-search-bar">
+          <button type="button" onclick="closeSpotifySearch()" aria-label="Wróć do odtwarzacza">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <input id="spotify-search-input" type="text" placeholder="Szukaj utworu lub wykonawcy" oninput="onSpotifySearchInput()">
+        </div>
+        <div id="spotify-search-results"></div>
+      </div>
+
     </div>
 
     <div id="spotify-status"></div>
@@ -1039,6 +1160,7 @@
     document.getElementById("spotify-logged-in").style.display = isLoggedIn ? "flex" : "none";
     document.getElementById("spotify-status").textContent = "";
     document.getElementById("spotify-view").classList.add("open");
+    closeSpotifySearch();
 
     if (isLoggedIn) {
       refreshSpotifyNowPlaying();
@@ -1049,6 +1171,91 @@
   function closeSpotifyView() {
     document.getElementById("spotify-view").classList.remove("open");
     if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
+  }
+
+  // ==========================================================================
+  // WYSZUKIWANIE — szukamy utworu i odtwarzamy go na aktualnie aktywnym
+  // urządzeniu Spotify (np. tym samym, na którym wcześniej coś odtwarzałeś).
+  // ==========================================================================
+
+  let spotifySearchDebounce = null;
+
+  function openSpotifySearch() {
+    document.getElementById("spotify-player-section").style.display = "none";
+    document.getElementById("spotify-search-section").style.display = "flex";
+    document.getElementById("spotify-search-btn").style.display = "none";
+    document.getElementById("spotify-search-input").value = "";
+    document.getElementById("spotify-search-results").innerHTML = "";
+    document.getElementById("spotify-search-input").focus();
+  }
+
+  function closeSpotifySearch() {
+    document.getElementById("spotify-player-section").style.display = "flex";
+    document.getElementById("spotify-search-section").style.display = "none";
+    document.getElementById("spotify-search-btn").style.display = "flex";
+  }
+
+  function onSpotifySearchInput() {
+    clearTimeout(spotifySearchDebounce);
+    const query = document.getElementById("spotify-search-input").value.trim();
+    if (!query) {
+      document.getElementById("spotify-search-results").innerHTML = "";
+      return;
+    }
+    spotifySearchDebounce = setTimeout(() => runSpotifySearch(query), 400);
+  }
+
+  async function runSpotifySearch(query) {
+    const resultsEl = document.getElementById("spotify-search-results");
+    try {
+      const res = await spotifyApi("/search?type=track&limit=10&q=" + encodeURIComponent(query));
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const tracks = (data.tracks && data.tracks.items) || [];
+
+      resultsEl.innerHTML = "";
+      if (tracks.length === 0) {
+        resultsEl.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Brak wyników.</div>`;
+        return;
+      }
+
+      tracks.forEach(track => {
+        const artUrl = track.album && track.album.images && track.album.images.length
+          ? track.album.images[track.album.images.length - 1].url
+          : "";
+        const btn = document.createElement("button");
+        btn.className = "search-result";
+        btn.type = "button";
+        btn.innerHTML = `
+          ${artUrl ? `<img src="${artUrl}" alt="">` : `<div style="width:36px;height:36px;border-radius:6px;background:rgba(255,255,255,0.06);flex:0 0 auto;"></div>`}
+          <div class="sr-text">
+            <div class="sr-title">${track.name}</div>
+            <div class="sr-artist">${track.artists.map(a => a.name).join(", ")}</div>
+          </div>
+        `;
+        btn.addEventListener("click", () => playSpotifyTrack(track.uri));
+        resultsEl.appendChild(btn);
+      });
+    } catch (err) {
+      console.error(err);
+      resultsEl.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Nie udało się wyszukać.</div>`;
+    }
+  }
+
+  async function playSpotifyTrack(uri) {
+    try {
+      await spotifyApi("/me/player/play", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [uri] })
+      });
+      closeSpotifySearch();
+      document.getElementById("spotify-status").textContent = "";
+      setTimeout(refreshSpotifyNowPlaying, 600);
+    } catch {
+      document.getElementById("spotify-status").textContent =
+        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
+    }
   }
 
   // Start
