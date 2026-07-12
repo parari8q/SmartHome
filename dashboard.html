@@ -1259,51 +1259,59 @@
   }
 
   // ==========================================================================
-  // HISTORIA WYSZUKIWANIA — pokazuje sie domyslnie po otwarciu wyszukiwarki,
-  // zamiast (niedzialajacych i tak) playlist.
+  // HISTORIA — pokazuje sie domyslnie po otwarciu wyszukiwarki. Zapisujemy tu
+  // faktycznie klikniete utwory/wykonawcow/albumy (z okladka), nie sam tekst
+  // zapytania — klikniecie w pozycje od razu odtwarza/otwiera dany element.
   // ==========================================================================
 
-  function getSearchHistory() {
-    try { return JSON.parse(localStorage.getItem("spotify_search_history") || "[]"); }
+  function getRecentItems() {
+    try { return JSON.parse(localStorage.getItem("spotify_recent_items") || "[]"); }
     catch { return []; }
   }
 
-  function addToSearchHistory(query) {
-    let history = getSearchHistory().filter(q => q.toLowerCase() !== query.toLowerCase());
-    history.unshift(query);
-    history = history.slice(0, 10);
-    localStorage.setItem("spotify_search_history", JSON.stringify(history));
+  function addRecentItem(item) {
+    let items = getRecentItems().filter(i => !(i.kind === item.kind && i.id === item.id));
+    items.unshift(item);
+    items = items.slice(0, 12);
+    localStorage.setItem("spotify_recent_items", JSON.stringify(items));
   }
 
-  function clearSearchHistory() {
-    localStorage.removeItem("spotify_search_history");
+  function clearRecentItems() {
+    localStorage.removeItem("spotify_recent_items");
     showSearchHistory();
   }
 
+  function openRecentItem(item) {
+    if (item.kind === "track") {
+      playSpotifyTrack(item.uri);
+    } else if (item.kind === "artist") {
+      showArtist({ id: item.id, name: item.name });
+    } else if (item.kind === "album") {
+      showAlbum({ id: item.id, name: item.name, uri: item.uri, artists: [{ name: item.subtitle }], images: item.image ? [{ url: item.image }] : [] });
+    }
+  }
+
   function showSearchHistory() {
-    setBrowseTitle("Historia wyszukiwania");
+    setBrowseTitle("Historia");
     spotifyBrowseBack = null;
-    const history = getSearchHistory();
+    const items = getRecentItems();
     const el = document.getElementById("spotify-search-results");
     el.innerHTML = "";
 
-    if (history.length === 0) {
+    if (items.length === 0) {
       el.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Zacznij wpisywać, żeby wyszukać utwór, wykonawcę lub album.</div>`;
       return;
     }
 
-    history.forEach(query => {
-      el.appendChild(makeRow(query, "", "", () => {
-        document.getElementById("spotify-search-input").value = query;
-        runSpotifySearch(query);
-      }));
+    items.forEach(item => {
+      el.appendChild(makeRow(item.name, item.subtitle, item.image, () => openRecentItem(item)));
     });
 
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.textContent = "Wyczyść historię";
     clearBtn.style.cssText = "background:none; border:none; color: rgba(245,247,250,0.35); font-size: 11px; font-family: 'Inter', sans-serif; text-decoration: underline; padding: 10px 6px; align-self: flex-start;";
-    clearBtn.onclick = clearSearchHistory;
+    clearBtn.onclick = clearRecentItems;
     el.appendChild(clearBtn);
   }
 
@@ -1482,7 +1490,6 @@
   async function runSpotifySearch(query) {
     setBrowseTitle("Wyniki: " + query);
     spotifyBrowseBack = showSearchHistory;
-    addToSearchHistory(query);
     setBrowseLoading();
     try {
       const res = await spotifyApi("/search?type=track,artist,album,playlist&limit=6&q=" + encodeURIComponent(query));
@@ -1506,27 +1513,35 @@
 
       if (tracks.length) {
         el.appendChild(sectionLabel("Utwory"));
-        tracks.forEach(t => el.appendChild(makeRow(
-          t.name, (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
-          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
-          () => playSpotifyTrack(t.uri)
-        )));
+        tracks.forEach(t => {
+          const subtitle = (t.artists || []).filter(Boolean).map(a => a.name).join(", ");
+          const image = t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "";
+          el.appendChild(makeRow(t.name, subtitle, image, () => {
+            addRecentItem({ kind: "track", id: t.id, uri: t.uri, name: t.name, subtitle, image });
+            playSpotifyTrack(t.uri);
+          }));
+        });
       }
       if (artists.length) {
         el.appendChild(sectionLabel("Wykonawcy"));
-        artists.forEach(a => el.appendChild(makeRow(
-          a.name, "Wykonawca",
-          a.images && a.images.length ? a.images[a.images.length - 1].url : "",
-          () => showArtist(a)
-        )));
+        artists.forEach(a => {
+          const image = a.images && a.images.length ? a.images[a.images.length - 1].url : "";
+          el.appendChild(makeRow(a.name, "Wykonawca", image, () => {
+            addRecentItem({ kind: "artist", id: a.id, uri: a.uri, name: a.name, subtitle: "Wykonawca", image });
+            showArtist(a);
+          }));
+        });
       }
       if (albums.length) {
         el.appendChild(sectionLabel("Albumy"));
-        albums.forEach(al => el.appendChild(makeRow(
-          al.name, (al.artists || []).filter(Boolean).map(a => a.name).join(", "),
-          al.images && al.images.length ? al.images[al.images.length - 1].url : "",
-          () => showAlbum(al)
-        )));
+        albums.forEach(al => {
+          const subtitle = (al.artists || []).filter(Boolean).map(a => a.name).join(", ");
+          const image = al.images && al.images.length ? al.images[al.images.length - 1].url : "";
+          el.appendChild(makeRow(al.name, subtitle, image, () => {
+            addRecentItem({ kind: "album", id: al.id, uri: al.uri, name: al.name, subtitle, image });
+            showAlbum(al);
+          }));
+        });
       }
       if (playlists.length) {
         el.appendChild(sectionLabel("Playlisty"));
