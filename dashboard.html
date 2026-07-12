@@ -508,7 +508,7 @@
     </div>
 
     <div id="spotify-logged-in" style="display:none; flex-direction: column; align-items: center; gap: inherit;">
-      <img id="spotify-art" src="" alt="" onerror="this.style.display='none'">
+      <img id="spotify-art" alt="" style="display:none" onerror="this.style.display='none'">
       <div id="spotify-track">—</div>
       <div id="spotify-artist">—</div>
       <div id="spotify-controls">
@@ -972,6 +972,9 @@
       const res = await spotifyApi("/me/player/currently-playing");
       if (res.status === 204) {
         statusEl.textContent = "Nic teraz nie gra. Włącz coś w aplikacji Spotify na innym urządzeniu.";
+        document.getElementById("spotify-art").style.display = "none";
+        document.getElementById("spotify-track").textContent = "—";
+        document.getElementById("spotify-artist").textContent = "—";
         return;
       }
       if (!res.ok) throw new Error("HTTP " + res.status);
