@@ -350,6 +350,102 @@
     font-weight: 500;
   }
 
+  /* --- widok Spotify: logowanie + odtwarzacz --- */
+
+  #spotify-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #0b140e 0%, #16241a 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 20;
+    gap: clamp(10px, 2vh, 18px);
+  }
+
+  #spotify-view.open { transform: translateY(0); }
+
+  #spotify-close {
+    position: absolute;
+    top: clamp(14px, 2.5vh, 26px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.5);
+  }
+
+  #spotify-close svg { width: 20px; height: 20px; }
+
+  #spotify-login-btn {
+    background: #3fae63;
+    color: #0b140e;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 28px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(14px, 2.6vh, 17px);
+    cursor: pointer;
+  }
+
+  #spotify-status {
+    font-size: clamp(12px, 2.2vh, 14px);
+    color: rgba(245,247,250,0.55);
+    text-align: center;
+    max-width: 60vw;
+  }
+
+  #spotify-art {
+    width: clamp(90px, 24vh, 160px);
+    height: clamp(90px, 24vh, 160px);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    object-fit: cover;
+  }
+
+  #spotify-track {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(16px, 3vh, 22px);
+    font-weight: 500;
+    text-align: center;
+    max-width: 70vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #spotify-artist {
+    font-size: clamp(12px, 2.2vh, 15px);
+    color: rgba(245,247,250,0.55);
+    text-align: center;
+  }
+
+  #spotify-controls {
+    display: flex;
+    align-items: center;
+    gap: clamp(18px, 3vw, 32px);
+  }
+
+  #spotify-controls button {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 50%;
+    color: #f5f7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #spotify-controls button svg { width: 100%; height: 100%; }
+
+  #spotify-controls .btn-sm { width: clamp(34px, 6vh, 44px); height: clamp(34px, 6vh, 44px); padding: 9px; }
+  #spotify-controls .btn-lg { width: clamp(48px, 8vh, 60px); height: clamp(48px, 8vh, 60px); padding: 13px; background: #3fae63; color: #0b140e; }
+
 </style>
 </head>
 <body>
@@ -402,6 +498,35 @@
     <div id="tile-grid"></div>
   </div>
 
+  <div id="spotify-view">
+    <button id="spotify-close" type="button" onclick="closeSpotifyView()" aria-label="Zamknij Spotify">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 9 12 15 6 9"/></svg>
+    </button>
+
+    <div id="spotify-logged-out">
+      <button id="spotify-login-btn" type="button" onclick="startSpotifyLogin()">Zaloguj się do Spotify</button>
+    </div>
+
+    <div id="spotify-logged-in" style="display:none; flex-direction: column; align-items: center; gap: inherit;">
+      <img id="spotify-art" src="" alt="">
+      <div id="spotify-track">—</div>
+      <div id="spotify-artist">—</div>
+      <div id="spotify-controls">
+        <button class="btn-sm" type="button" onclick="spotifyPrevious()" aria-label="Poprzedni">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6L9 12l11 6z"/></svg>
+        </button>
+        <button class="btn-lg" id="spotify-playpause" type="button" onclick="spotifyTogglePlay()" aria-label="Odtwórz/Pauza">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="btn-sm" type="button" onclick="spotifyNext()" aria-label="Następny">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l11 6-11 6z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="spotify-status"></div>
+  </div>
+
 <script>
 
   // ==========================================================================
@@ -431,7 +556,7 @@
     {
       id: "spotify",
       label: "Spotify",
-      url: "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F",
+      action: "spotify",
       background: "linear-gradient(135deg, #3fae63, #2c8049)",
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M7 10c4-1 8-0.5 11 1.2"/><path d="M7.5 13c3-0.8 6.5-0.4 9 1"/><path d="M8 16c2.3-0.6 5-0.3 7 0.7"/></svg>`
     },
@@ -443,6 +568,24 @@
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.9 6 6 0 0 1 11.4-2A5 5 0 0 1 19 15H4z"/><line x1="9" y1="19" x2="9" y2="21"/><line x1="13" y1="19" x2="13" y2="21"/></svg>`
     }
   ];
+
+  // ==========================================================================
+  // SPOTIFY — logowanie i sterowanie odtwarzaniem.
+  // 1. Wejdź na https://developer.spotify.com/dashboard, zaloguj się swoim kontem Spotify.
+  // 2. "Create app" — nazwa i opis dowolne.
+  // 3. W polu "Redirect URI" wklej DOKŁADNIE adres tego pliku na GitHub Pages
+  //    (ten sam, którego używasz jako Start URL w Fully Kiosk), np.
+  //    https://twojnick.github.io/repo/dashboard.html
+  // 4. Zapisz, wejdź w ustawienia utworzonej appki, skopiuj "Client ID" i wklej niżej.
+  // 5. Sterowanie odtwarzaniem (play/pauza/skip) wymaga konta Spotify Premium
+  //    oraz aktywnego urządzenia w aplikacji Spotify — bez tego zobaczysz sam
+  //    podgląd "co gra teraz", ale przyciski nie zadziałają.
+  // ==========================================================================
+  const SPOTIFY_CONFIG = {
+    clientId: "f1282342eb5f4bdfaa8dd8b90fc1a62e",
+    redirectUri: window.location.origin + window.location.pathname,
+    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
+  };
 
   const WEATHER_CODES = {
     0:  { text: "Bezchmurnie", cat: "clear" },
@@ -649,7 +792,10 @@
         el.href = tile.url;
       } else {
         el.type = "button";
-        el.addEventListener("click", () => { if (tile.action === "home") closeMenu(); });
+        el.addEventListener("click", () => {
+          if (tile.action === "home") closeMenu();
+          if (tile.action === "spotify") { closeMenu(); openSpotifyView(); }
+        });
       }
       el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
       grid.appendChild(el);
@@ -678,16 +824,219 @@
     if (touchStartY === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY;
     const menuOpen = document.getElementById("menu-view").classList.contains("open");
+    const spotifyOpen = document.getElementById("spotify-view").classList.contains("open");
 
-    if (!menuOpen && deltaY < -SWIPE_THRESHOLD) {
+    if (!menuOpen && !spotifyOpen && deltaY < -SWIPE_THRESHOLD) {
       openMenu();
     } else if (menuOpen && deltaY > SWIPE_THRESHOLD) {
       closeMenu();
+    } else if (spotifyOpen && deltaY > SWIPE_THRESHOLD) {
+      closeSpotifyView();
     }
     touchStartY = null;
   }, { passive: true });
 
+  // ==========================================================================
+  // SPOTIFY — logowanie metoda "Authorization Code with PKCE" (bezpieczna,
+  // nie wymaga trzymania zadnego sekretu w kodzie strony) i sterowanie
+  // odtwarzaniem przez oficjalne Spotify Web API.
+  // ==========================================================================
+
+  function randomString(length) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const values = crypto.getRandomValues(new Uint8Array(length));
+    return Array.from(values).map(v => chars[v % chars.length]).join("");
+  }
+
+  async function sha256base64url(plain) {
+    const data = new TextEncoder().encode(plain);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    let str = "";
+    new Uint8Array(digest).forEach(b => str += String.fromCharCode(b));
+    return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function getSpotifyTokens() {
+    try { return JSON.parse(localStorage.getItem("spotify_tokens") || "null"); }
+    catch { return null; }
+  }
+
+  function saveSpotifyTokens(data) {
+    const existing = getSpotifyTokens() || {};
+    const tokens = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || existing.refresh_token,
+      expires_at: Date.now() + (data.expires_in * 1000)
+    };
+    localStorage.setItem("spotify_tokens", JSON.stringify(tokens));
+    return tokens;
+  }
+
+  async function startSpotifyLogin() {
+    if (SPOTIFY_CONFIG.clientId === "WKLEJ_TU_SWOJ_CLIENT_ID") {
+      document.getElementById("spotify-status").textContent =
+        "Najpierw uzupełnij SPOTIFY_CONFIG.clientId w pliku dashboard.html.";
+      return;
+    }
+    const verifier = randomString(64);
+    localStorage.setItem("spotify_verifier", verifier);
+    const challenge = await sha256base64url(verifier);
+    const params = new URLSearchParams({
+      client_id: SPOTIFY_CONFIG.clientId,
+      response_type: "code",
+      redirect_uri: SPOTIFY_CONFIG.redirectUri,
+      scope: SPOTIFY_CONFIG.scopes,
+      code_challenge_method: "S256",
+      code_challenge: challenge
+    });
+    window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
+  }
+
+  async function handleSpotifyRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (!code) return;
+
+    const verifier = localStorage.getItem("spotify_verifier");
+    const body = new URLSearchParams({
+      client_id: SPOTIFY_CONFIG.clientId,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: SPOTIFY_CONFIG.redirectUri,
+      code_verifier: verifier
+    });
+
+    try {
+      const res = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        saveSpotifyTokens(data);
+        openSpotifyView();
+      }
+    } catch (err) {
+      console.error("Blad logowania Spotify:", err);
+    }
+
+    window.history.replaceState({}, document.title, SPOTIFY_CONFIG.redirectUri);
+  }
+
+  async function ensureSpotifyToken() {
+    let tokens = getSpotifyTokens();
+    if (!tokens) return null;
+
+    if (Date.now() < tokens.expires_at - 60000) return tokens.access_token;
+
+    const body = new URLSearchParams({
+      client_id: SPOTIFY_CONFIG.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token
+    });
+
+    try {
+      const res = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        tokens = saveSpotifyTokens(data);
+        return tokens.access_token;
+      }
+    } catch (err) {
+      console.error("Blad odswiezania tokena Spotify:", err);
+    }
+    return null;
+  }
+
+  async function spotifyApi(path, options = {}) {
+    const token = await ensureSpotifyToken();
+    if (!token) throw new Error("brak-logowania");
+    return fetch("https://api.spotify.com/v1" + path, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: "Bearer " + token }
+    });
+  }
+
+  let spotifyPollTimer = null;
+  let spotifyIsPlaying = false;
+
+  async function refreshSpotifyNowPlaying() {
+    const statusEl = document.getElementById("spotify-status");
+    try {
+      const res = await spotifyApi("/me/player/currently-playing");
+      if (res.status === 204) {
+        statusEl.textContent = "Nic teraz nie gra. Włącz coś w aplikacji Spotify na innym urządzeniu.";
+        return;
+      }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!data || !data.item) return;
+
+      spotifyIsPlaying = data.is_playing;
+      document.getElementById("spotify-track").textContent = data.item.name;
+      document.getElementById("spotify-artist").textContent =
+        data.item.artists.map(a => a.name).join(", ");
+      const art = data.item.album && data.item.album.images && data.item.album.images[0];
+      document.getElementById("spotify-art").src = art ? art.url : "";
+
+      document.getElementById("spotify-playpause").innerHTML = spotifyIsPlaying
+        ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+
+      statusEl.textContent = "";
+    } catch (err) {
+      if (err.message === "brak-logowania") return;
+      console.error(err);
+      statusEl.textContent = "Nie udało się pobrać danych z Spotify.";
+    }
+  }
+
+  async function spotifyTogglePlay() {
+    try {
+      await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
+      spotifyIsPlaying = !spotifyIsPlaying;
+      setTimeout(refreshSpotifyNowPlaying, 400);
+    } catch {
+      document.getElementById("spotify-status").textContent =
+        "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify.";
+    }
+  }
+
+  async function spotifyNext() {
+    try { await spotifyApi("/me/player/next", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
+    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+  }
+
+  async function spotifyPrevious() {
+    try { await spotifyApi("/me/player/previous", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
+    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+  }
+
+  function openSpotifyView() {
+    const isLoggedIn = !!getSpotifyTokens();
+    document.getElementById("spotify-logged-out").style.display = isLoggedIn ? "none" : "flex";
+    document.getElementById("spotify-logged-in").style.display = isLoggedIn ? "flex" : "none";
+    document.getElementById("spotify-status").textContent = "";
+    document.getElementById("spotify-view").classList.add("open");
+
+    if (isLoggedIn) {
+      refreshSpotifyNowPlaying();
+      spotifyPollTimer = setInterval(refreshSpotifyNowPlaying, 10000);
+    }
+  }
+
+  function closeSpotifyView() {
+    document.getElementById("spotify-view").classList.remove("open");
+    if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
+  }
+
   // Start
+  handleSpotifyRedirect();
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
