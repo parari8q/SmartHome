@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dashboard domowy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+  /* ====================================================================
+     KONFIGURACJA — to jest jedyne miejsce, które musisz edytować na start.
+     Wpisz swoje miasto i współrzędne (znajdziesz je np. wpisując
+     "moje miasto współrzędne gps" w Google, albo na latlong.net).
+     ==================================================================== */
+
+  :root {
+    --sky-top: #0b1220;
+    --sky-bottom: #131c33;
+    --accent: #b9c7e0;
+    --transition-speed: 2.5s;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  body {
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
+    transition: background var(--transition-speed) ease;
+    color: #f5f7fa;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100vh;
+    padding: clamp(20px, 6vw, 40px);
+  }
+
+  /* --- górny pasek: zegar i data --- */
+
+  #top {
+    text-align: center;
+  }
+
+  #clock {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(40px, 13vw, 72px);
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+
+  #date {
+    margin-top: 6px;
+    font-size: clamp(13px, 3vw, 16px);
+    color: rgba(245,247,250,0.6);
+    text-transform: capitalize;
+    letter-spacing: 0.03em;
+  }
+
+  /* --- środek: temperatura + ikona --- */
+
+  #main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #icon-wrap {
+    width: clamp(90px, 26vw, 140px);
+    height: clamp(90px, 26vw, 140px);
+    color: var(--accent);
+    transition: color var(--transition-speed) ease;
+  }
+
+  #icon-wrap svg { width: 100%; height: 100%; overflow: visible; }
+
+  #temp {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(90px, 30vw, 180px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  #temp .deg { font-size: 0.35em; font-weight: 500; margin-top: 0.1em; }
+
+  #condition {
+    font-size: clamp(16px, 4vw, 22px);
+    font-weight: 500;
+  }
+
+  #location {
+    font-size: clamp(13px, 3vw, 15px);
+    color: rgba(245,247,250,0.55);
+    margin-top: 2px;
+  }
+
+  /* --- pasek statystyk --- */
+
+  #stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: clamp(16px, 4vw, 28px);
+  }
+
+  .stat { text-align: center; }
+
+  .stat .label {
+    font-size: clamp(10px, 2.4vw, 12px);
+    color: rgba(245,247,250,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .stat .value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(16px, 4vw, 22px);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* --- dolny pasek: prognoza godzinowa --- */
+
+  #hourly {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    padding: clamp(14px, 3.5vw, 20px) clamp(4px, 2vw, 12px);
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+  }
+
+  .hour {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .hour .h-time {
+    font-size: clamp(11px, 2.6vw, 13px);
+    color: rgba(245,247,250,0.55);
+  }
+
+  .hour .h-icon { width: clamp(18px, 4.5vw, 24px); height: clamp(18px, 4.5vw, 24px); color: var(--accent); }
+  .hour .h-icon svg { width: 100%; height: 100%; }
+
+  .hour .h-temp {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(13px, 3vw, 16px);
+    font-weight: 500;
+  }
+
+  #footer {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(245,247,250,0.3);
+    margin-top: 8px;
+  }
+
+  #error-banner {
+    display: none;
+    text-align: center;
+    font-size: 13px;
+    color: rgba(245,247,250,0.7);
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  /* proste animacje ikon pogodowych */
+  @keyframes drift { 0%,100% { transform: translateX(-4px);} 50% { transform: translateX(4px);} }
+  @keyframes rise { 0%,100% { transform: rotate(0deg);} 50% { transform: rotate(8deg);} }
+  @keyframes fall { 0% { transform: translateY(-2px); opacity: 0.2;} 60% { opacity: 1;} 100% { transform: translateY(10px); opacity: 0;} }
+  @keyframes flash { 0%,90%,100% { opacity: 0.9;} 92%,96% { opacity: 0.2;} }
+  @keyframes pulse-slow { 0%,100% { opacity: 1;} 50% { opacity: 0.6;} }
+
+  .anim-cloud { animation: drift 6s ease-in-out infinite; }
+  .anim-sun { animation: rise 8s ease-in-out infinite; transform-origin: center; }
+  .anim-drop { animation: fall 1.4s linear infinite; }
+  .anim-drop:nth-child(2) { animation-delay: 0.3s; }
+  .anim-drop:nth-child(3) { animation-delay: 0.6s; }
+  .anim-bolt { animation: flash 3s ease-in-out infinite; }
+  .anim-fog { animation: pulse-slow 4s ease-in-out infinite; }
+  .anim-fog:nth-child(2) { animation-delay: 0.7s; }
+  .anim-fog:nth-child(3) { animation-delay: 1.4s; }
+
+</style>
+</head>
+<body>
+
+  <div id="top">
+    <div id="clock">--:--</div>
+    <div id="date">-</div>
+  </div>
+
+  <div id="main">
+    <div id="error-banner"></div>
+    <div id="icon-wrap"></div>
+    <div id="temp">--<span class="deg">°</span></div>
+    <div id="condition">Ładowanie…</div>
+    <div id="location"></div>
+
+    <div id="stats">
+      <div class="stat"><div class="label">Odczuwalna</div><div class="value" id="stat-feels">--°</div></div>
+      <div class="stat"><div class="label">Wilgotność</div><div class="value" id="stat-humidity">--%</div></div>
+      <div class="stat"><div class="label">Wiatr</div><div class="value" id="stat-wind">-- km/h</div></div>
+      <div class="stat"><div class="label">Zachód</div><div class="value" id="stat-sunset">--:--</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div id="hourly"></div>
+    <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
+  </div>
+
+<script>
+
+  // ==========================================================================
+  // KONFIGURACJA — edytuj to miejsce, zanim wgrasz plik na telefon
+  // ==========================================================================
+  const CONFIG = {
+    cityName: "Warszawa",       // nazwa wyświetlana na ekranie
+    latitude: 52.2297,          // szerokość geograficzna Twojej miejscowości
+    longitude: 21.0122,         // długość geograficzna Twojej miejscowości
+    refreshMinutes: 10          // co ile minut odświeżać dane
+  };
+  // ==========================================================================
+
+  // Mapowanie kodów pogodowych WMO (używanych przez Open-Meteo) na opis PL,
+  // kategorię (do wyboru ikony i koloru) i nazwę ikony.
+  const WEATHER_CODES = {
+    0:  { text: "Bezchmurnie", cat: "clear" },
+    1:  { text: "Prawie bezchmurnie", cat: "clear" },
+    2:  { text: "Częściowe zachmurzenie", cat: "cloud" },
+    3:  { text: "Pochmurno", cat: "cloud" },
+    45: { text: "Mgła", cat: "fog" },
+    48: { text: "Mgła osadzająca szron", cat: "fog" },
+    51: { text: "Lekka mżawka", cat: "rain" },
+    53: { text: "Mżawka", cat: "rain" },
+    55: { text: "Gęsta mżawka", cat: "rain" },
+    56: { text: "Marznąca mżawka", cat: "rain" },
+    57: { text: "Marznąca mżawka", cat: "rain" },
+    61: { text: "Lekki deszcz", cat: "rain" },
+    63: { text: "Deszcz", cat: "rain" },
+    65: { text: "Ulewny deszcz", cat: "rain" },
+    66: { text: "Marznący deszcz", cat: "rain" },
+    67: { text: "Marznący deszcz", cat: "rain" },
+    71: { text: "Lekki śnieg", cat: "snow" },
+    73: { text: "Śnieg", cat: "snow" },
+    75: { text: "Intensywny śnieg", cat: "snow" },
+    77: { text: "Śnieg ziarnisty", cat: "snow" },
+    80: { text: "Przelotny deszcz", cat: "rain" },
+    81: { text: "Przelotny deszcz", cat: "rain" },
+    82: { text: "Gwałtowny deszcz", cat: "rain" },
+    85: { text: "Przelotny śnieg", cat: "snow" },
+    86: { text: "Przelotny śnieg", cat: "snow" },
+    95: { text: "Burza", cat: "storm" },
+    96: { text: "Burza z gradem", cat: "storm" },
+    99: { text: "Burza z gradem", cat: "storm" }
+  };
+
+  // Kolory nieba i akcentu dla każdej kombinacji pora dnia / kategoria pogody
+  const THEMES = {
+    "day-clear":   { top: "#1f78c4", bottom: "#7fc2ea", accent: "#ffcf6b" },
+    "day-cloud":   { top: "#4b5a6b", bottom: "#8a97a3", accent: "#d7dde3" },
+    "day-fog":     { top: "#5a6570", bottom: "#909ca6", accent: "#c9d1d8" },
+    "day-rain":    { top: "#1f4e5f", bottom: "#4a7c8c", accent: "#7fd3f0" },
+    "day-snow":    { top: "#5f7c94", bottom: "#c3d9e6", accent: "#ffffff" },
+    "day-storm":   { top: "#2b2640", bottom: "#554f7a", accent: "#c6b8ff" },
+    "night-clear": { top: "#050814", bottom: "#131c33", accent: "#b9c7e0" },
+    "night-cloud": { top: "#0a0d16", bottom: "#1c2333", accent: "#8a93a3" },
+    "night-fog":   { top: "#0a0d12", bottom: "#232a30", accent: "#9aa5ab" },
+    "night-rain":  { top: "#050c14", bottom: "#122436", accent: "#5fa8d0" },
+    "night-snow":  { top: "#0a1018", bottom: "#28374a", accent: "#dceaf2" },
+    "night-storm": { top: "#0a0714", bottom: "#241d3c", accent: "#a894f0" }
+  };
+
+  // SVG ikon pogodowych — proste, animowane przez klasy CSS zdefiniowane w <style>
+  const ICONS = {
+    clear: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+      <circle cx="50" cy="50" r="20"/>
+      <g class="anim-sun">
+        <line x1="50" y1="8" x2="50" y2="20"/>
+        <line x1="50" y1="80" x2="50" y2="92"/>
+        <line x1="8" y1="50" x2="20" y2="50"/>
+        <line x1="80" y1="50" x2="92" y2="50"/>
+        <line x1="21" y1="21" x2="29" y2="29"/>
+        <line x1="71" y1="71" x2="79" y2="79"/>
+        <line x1="21" y1="79" x2="29" y2="71"/>
+        <line x1="71" y1="29" x2="79" y2="21"/>
+      </g>
+    </svg>`,
+    cloud: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path class="anim-cloud" d="M28 62a16 16 0 1 1 4-31.5 20 20 0 0 1 38 8A14 14 0 0 1 68 66H30"/>
+    </svg>`,
+    fog: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+      <line class="anim-fog" x1="18" y1="38" x2="82" y2="38"/>
+      <line class="anim-fog" x1="12" y1="52" x2="88" y2="52"/>
+      <line class="anim-fog" x1="20" y1="66" x2="80" y2="66"/>
+    </svg>`,
+    rain: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M26 52a16 16 0 1 1 4-31.5 20 20 0 0 1 38 8A14 14 0 0 1 66 56H28"/>
+      <line class="anim-drop" x1="34" y1="66" x2="34" y2="76"/>
+      <line class="anim-drop" x1="50" y1="66" x2="50" y2="76"/>
+      <line class="anim-drop" x1="66" y1="66" x2="66" y2="76"/>
+    </svg>`,
+    snow: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M26 50a16 16 0 1 1 4-31.5 20 20 0 0 1 38 8A14 14 0 0 1 66 54H28"/>
+      <circle class="anim-drop" cx="34" cy="68" r="2" fill="currentColor"/>
+      <circle class="anim-drop" cx="50" cy="68" r="2" fill="currentColor"/>
+      <circle class="anim-drop" cx="66" cy="68" r="2" fill="currentColor"/>
+    </svg>`,
+    storm: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M26 48a16 16 0 1 1 4-31.5 20 20 0 0 1 38 8A14 14 0 0 1 66 52H28"/>
+      <path class="anim-bolt" d="M52 58l-10 16h9l-4 12 13-18h-9l4-10z" fill="currentColor" stroke="none"/>
+    </svg>`
+  };
+
+  function setTheme(cat, isDay) {
+    const key = (isDay ? "day-" : "night-") + cat;
+    const theme = THEMES[key] || THEMES["night-clear"];
+    document.documentElement.style.setProperty("--sky-top", theme.top);
+    document.documentElement.style.setProperty("--sky-bottom", theme.bottom);
+    document.documentElement.style.setProperty("--accent", theme.accent);
+  }
+
+  function fmtHour(isoString) {
+    return new Date(isoString).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById("clock").textContent =
+      now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    document.getElementById("date").textContent =
+      now.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  function showError(message) {
+    const banner = document.getElementById("error-banner");
+    banner.textContent = message;
+    banner.style.display = "block";
+  }
+
+  function hideError() {
+    document.getElementById("error-banner").style.display = "none";
+  }
+
+  async function fetchWeather() {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.latitude}&longitude=${CONFIG.longitude}` +
+      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
+      `&hourly=temperature_2m,weather_code` +
+      `&daily=sunrise,sunset` +
+      `&timezone=auto&forecast_days=2`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      renderWeather(data);
+      hideError();
+    } catch (err) {
+      console.error(err);
+      showError("Nie udało się pobrać pogody — sprawdzam ponownie za chwilę.");
+    }
+  }
+
+  function renderWeather(data) {
+    const cur = data.current;
+    const info = WEATHER_CODES[cur.weather_code] || { text: "Brak danych", cat: "cloud" };
+    const isDay = cur.is_day === 1;
+
+    setTheme(info.cat, isDay);
+
+    document.getElementById("icon-wrap").innerHTML = ICONS[info.cat] || ICONS.cloud;
+    document.getElementById("temp").innerHTML = Math.round(cur.temperature_2m) + '<span class="deg">°</span>';
+    document.getElementById("condition").textContent = info.text;
+    document.getElementById("location").textContent = CONFIG.cityName;
+
+    document.getElementById("stat-feels").textContent = Math.round(cur.apparent_temperature) + "°";
+    document.getElementById("stat-humidity").textContent = Math.round(cur.relative_humidity_2m) + "%";
+    document.getElementById("stat-wind").textContent = Math.round(cur.wind_speed_10m) + " km/h";
+    document.getElementById("stat-sunset").textContent = fmtHour(data.daily.sunset[0]);
+
+    renderHourly(data.hourly, cur.time);
+
+    document.getElementById("last-updated").textContent =
+      new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function renderHourly(hourly, currentTimeIso) {
+    const container = document.getElementById("hourly");
+    container.innerHTML = "";
+
+    let startIndex = hourly.time.findIndex(t => t >= currentTimeIso);
+    if (startIndex === -1) startIndex = 0;
+
+    for (let i = startIndex + 1; i <= startIndex + 5; i++) {
+      if (!hourly.time[i]) continue;
+      const code = hourly.weather_code[i];
+      const info = WEATHER_CODES[code] || { cat: "cloud" };
+      const el = document.createElement("div");
+      el.className = "hour";
+      el.innerHTML = `
+        <div class="h-time">${fmtHour(hourly.time[i])}</div>
+        <div class="h-icon">${ICONS[info.cat] || ICONS.cloud}</div>
+        <div class="h-temp">${Math.round(hourly.temperature_2m[i])}°</div>
+      `;
+      container.appendChild(el);
+    }
+  }
+
+  async function keepScreenAwake() {
+    try {
+      if ("wakeLock" in navigator) {
+        await navigator.wakeLock.request("screen");
+      }
+    } catch (err) {
+      console.warn("Wake lock nieobsługiwany lub odrzucony:", err);
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") keepScreenAwake();
+  });
+
+  // Start
+  updateClock();
+  setInterval(updateClock, 1000);
+  fetchWeather();
+  setInterval(fetchWeather, CONFIG.refreshMinutes * 60 * 1000);
+  keepScreenAwake();
+
+</script>
+</body>
+</html>
