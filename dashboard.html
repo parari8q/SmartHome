@@ -1309,6 +1309,10 @@
     setBrowseLoading();
     try {
       const res = await spotifyApi("/me/playlists?limit=30");
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
@@ -1336,6 +1340,10 @@
     setBrowseLoading();
     try {
       const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
@@ -1362,6 +1370,10 @@
     setBrowseLoading();
     try {
       const res = await spotifyApi(`/albums/${album.id}/tracks?limit=50`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
@@ -1388,6 +1400,10 @@
     try {
       const market = await getSpotifyMarket();
       const res = await spotifyApi(`/artists/${artist.id}/top-tracks?market=${market}`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
