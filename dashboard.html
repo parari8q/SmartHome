@@ -747,7 +747,7 @@
   const SPOTIFY_CONFIG = {
     clientId: "f1282342eb5f4bdfaa8dd8b90fc1a62e",
     redirectUri: window.location.origin + window.location.pathname,
-    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-read-private"
+    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-read-private"
   };
 
   const WEATHER_CODES = {
@@ -1181,23 +1181,36 @@
 
   async function spotifyTogglePlay() {
     try {
-      await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
+      const res = await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
       spotifyIsPlaying = !spotifyIsPlaying;
       setTimeout(refreshSpotifyNowPlaying, 400);
-    } catch {
-      document.getElementById("spotify-status").textContent =
-        "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify.";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
     }
   }
 
   async function spotifyNext() {
-    try { await spotifyApi("/me/player/next", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
-    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+    try {
+      const res = await spotifyApi("/me/player/next", { method: "POST" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
+      setTimeout(refreshSpotifyNowPlaying, 500);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
+    }
   }
 
   async function spotifyPrevious() {
-    try { await spotifyApi("/me/player/previous", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
-    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+    try {
+      const res = await spotifyApi("/me/player/previous", { method: "POST" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
+      setTimeout(refreshSpotifyNowPlaying, 500);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
+    }
   }
 
   function openSpotifyView() {
@@ -1235,7 +1248,7 @@
     document.getElementById("spotify-search-btn").style.display = "none";
     document.getElementById("spotify-search-input").value = "";
     spotifyBrowseBack = null;
-    showSpotifyPlaylists();
+    showSearchHistory();
     document.getElementById("spotify-search-input").focus();
   }
 
@@ -1243,6 +1256,55 @@
     document.getElementById("spotify-player-section").style.display = "flex";
     document.getElementById("spotify-search-section").style.display = "none";
     document.getElementById("spotify-search-btn").style.display = "flex";
+  }
+
+  // ==========================================================================
+  // HISTORIA WYSZUKIWANIA — pokazuje sie domyslnie po otwarciu wyszukiwarki,
+  // zamiast (niedzialajacych i tak) playlist.
+  // ==========================================================================
+
+  function getSearchHistory() {
+    try { return JSON.parse(localStorage.getItem("spotify_search_history") || "[]"); }
+    catch { return []; }
+  }
+
+  function addToSearchHistory(query) {
+    let history = getSearchHistory().filter(q => q.toLowerCase() !== query.toLowerCase());
+    history.unshift(query);
+    history = history.slice(0, 10);
+    localStorage.setItem("spotify_search_history", JSON.stringify(history));
+  }
+
+  function clearSearchHistory() {
+    localStorage.removeItem("spotify_search_history");
+    showSearchHistory();
+  }
+
+  function showSearchHistory() {
+    setBrowseTitle("Historia wyszukiwania");
+    spotifyBrowseBack = null;
+    const history = getSearchHistory();
+    const el = document.getElementById("spotify-search-results");
+    el.innerHTML = "";
+
+    if (history.length === 0) {
+      el.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Zacznij wpisywać, żeby wyszukać utwór, wykonawcę lub album.</div>`;
+      return;
+    }
+
+    history.forEach(query => {
+      el.appendChild(makeRow(query, "", "", () => {
+        document.getElementById("spotify-search-input").value = query;
+        runSpotifySearch(query);
+      }));
+    });
+
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.textContent = "Wyczyść historię";
+    clearBtn.style.cssText = "background:none; border:none; color: rgba(245,247,250,0.35); font-size: 11px; font-family: 'Inter', sans-serif; text-decoration: underline; padding: 10px 6px; align-self: flex-start;";
+    clearBtn.onclick = clearSearchHistory;
+    el.appendChild(clearBtn);
   }
 
   function spotifyBrowseGoBack() {
@@ -1323,7 +1385,7 @@
       data.items.forEach(pl => {
         el.appendChild(makeRow(
           pl.name,
-          (pl.tracks ? pl.tracks.total : 0) + " utworów",
+          "Playlista",
           pl.images && pl.images[0] ? pl.images[0].url : "",
           () => showPlaylistTracks(pl)
         ));
@@ -1334,39 +1396,24 @@
     }
   }
 
-  async function showPlaylistTracks(playlist) {
+  function showPlaylistTracks(playlist) {
     setBrowseTitle(playlist.name);
     spotifyBrowseBack = showSpotifyPlaylists;
-    setBrowseLoading();
-    try {
-      const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error("HTTP " + res.status + " playlist.id=" + playlist.id + " " + body.slice(0, 150));
-      }
-      const data = await res.json();
-      const el = document.getElementById("spotify-search-results");
-      el.innerHTML = "";
-      el.appendChild(makeRow("▶  Odtwórz całą playlistę", "", playlist.images && playlist.images[0] ? playlist.images[0].url : "", () => playSpotifyContext(playlist.uri)));
-      data.items.filter(i => i.track).forEach(i => {
-        const t = i.track;
-        el.appendChild(makeRow(
-          t.name,
-          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
-          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
-          () => playSpotifyTrack(t.uri)
-        ));
-      });
-    } catch (err) {
-      console.error(err);
-      setBrowseError(err.message);
-    }
+    const el = document.getElementById("spotify-search-results");
+    el.innerHTML = "";
+    el.appendChild(makeRow(
+      "▶  Odtwórz całą playlistę",
+      "",
+      playlist.images && playlist.images[0] ? playlist.images[0].url : "",
+      () => playSpotifyContext(playlist.uri)
+    ));
+    el.innerHTML += `<div style="color: rgba(245,247,250,0.4); font-size: 12px; padding: 12px 6px;">Spotify nie pozwala aplikacjom takim jak ta pokazywać pojedynczych utworów z playlist — możesz jednak odtworzyć całą playlistę na aktywnym urządzeniu.</div>`;
   }
 
   async function showAlbum(album) {
     setBrowseTitle(album.name);
     const backFn = spotifyBrowseBack;
-    spotifyBrowseBack = backFn || showSpotifyPlaylists;
+    spotifyBrowseBack = backFn || showSearchHistory;
     setBrowseLoading();
     try {
       const res = await spotifyApi(`/albums/${album.id}/tracks?limit=50`);
@@ -1395,7 +1442,7 @@
   async function showArtist(artist) {
     setBrowseTitle(artist.name);
     const backFn = spotifyBrowseBack;
-    spotifyBrowseBack = backFn || showSpotifyPlaylists;
+    spotifyBrowseBack = backFn || showSearchHistory;
     setBrowseLoading();
     try {
       const market = await getSpotifyMarket();
@@ -1426,7 +1473,7 @@
     clearTimeout(spotifySearchDebounce);
     const query = document.getElementById("spotify-search-input").value.trim();
     if (!query) {
-      showSpotifyPlaylists();
+      showSearchHistory();
       return;
     }
     spotifySearchDebounce = setTimeout(() => runSpotifySearch(query), 400);
@@ -1434,7 +1481,8 @@
 
   async function runSpotifySearch(query) {
     setBrowseTitle("Wyniki: " + query);
-    spotifyBrowseBack = showSpotifyPlaylists;
+    spotifyBrowseBack = showSearchHistory;
+    addToSearchHistory(query);
     setBrowseLoading();
     try {
       const res = await spotifyApi("/search?type=track,artist,album,playlist&limit=6&q=" + encodeURIComponent(query));
@@ -1496,45 +1544,44 @@
 
   async function playSpotifyTrack(uri) {
     try {
-      await spotifyApi("/me/player/play", {
+      const res = await spotifyApi("/me/player/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uris: [uri] })
       });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       closeSpotifySearch();
       document.getElementById("spotify-status").textContent = "";
       setTimeout(refreshSpotifyNowPlaying, 600);
-    } catch {
-      document.getElementById("spotify-status").textContent =
-        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się odtworzyć: " + err.message;
     }
   }
 
-async function playSpotifyContext(contextUri) {
-  try {
-    const res = await spotifyApi("/me/player/play", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context_uri: contextUri })
-    });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("Spotify error:", res.status, txt);
-
+  async function playSpotifyContext(contextUri) {
+    try {
+      const res = await spotifyApi("/me/player/play", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context_uri: contextUri })
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
+      closeSpotifySearch();
+      document.getElementById("spotify-status").textContent = "";
+      setTimeout(refreshSpotifyNowPlaying, 600);
+    } catch (err) {
+      console.error(err);
       document.getElementById("spotify-status").textContent =
-        `Spotify zwrócił błąd ${res.status}`;
-
-      return;
+        "Nie udało się odtworzyć: " + err.message;
     }
-
-    closeSpotifySearch();
-    setTimeout(refreshSpotifyNowPlaying, 600);
-
-  } catch (e) {
-    console.error(e);
   }
-}
 
   let spotifyVolumeDebounce = null;
 
