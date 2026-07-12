@@ -1326,7 +1326,7 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError();
+      setBrowseError(err.message);
     }
   }
 
@@ -1351,7 +1351,7 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError();
+      setBrowseError(err.message);
     }
   }
 
@@ -1365,7 +1365,7 @@
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
-      el.appendChild(makeRow("▶  Odtwórz cały album", album.artists.map(a => a.name).join(", "), album.images && album.images[0] ? album.images[0].url : "", () => playSpotifyContext(album.uri)));
+      el.appendChild(makeRow("▶  Odtwórz cały album", (album.artists || []).filter(Boolean).map(a => a.name).join(", "), album.images && album.images[0] ? album.images[0].url : "", () => playSpotifyContext(album.uri)));
       data.items.forEach(t => {
         el.appendChild(makeRow(
           t.name,
@@ -1376,7 +1376,7 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError();
+      setBrowseError(err.message);
     }
   }
 
@@ -1402,7 +1402,7 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError();
+      setBrowseError(err.message);
     }
   }
 
