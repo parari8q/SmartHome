@@ -10,9 +10,9 @@
 <style>
 
   /* ====================================================================
-     KONFIGURACJA — to jest jedyne miejsce, które musisz edytować na start.
-     Wpisz swoje miasto i współrzędne (znajdziesz je np. wpisując
-     "moje miasto współrzędne gps" w Google, albo na latlong.net).
+     Layout myslany pod telefon polozony POZIOMO (landscape).
+     Jesli kiedys chcesz wrocic do pionu, sekcja @media (orientation: portrait)
+     na dole pliku przelacza uklad automatycznie.
      ==================================================================== */
 
   :root {
@@ -38,56 +38,79 @@
     color: #f5f7fa;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     height: 100vh;
-    padding: clamp(20px, 6vw, 40px);
+    padding: clamp(12px, 2.5vh, 24px) clamp(20px, 3vw, 40px);
   }
 
-  /* --- górny pasek: zegar i data --- */
+  /* --- glowny wiersz: zegar / hero / statystyki, obok siebie --- */
 
-  #top {
-    text-align: center;
+  #container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(12px, 3vw, 40px);
+  }
+
+  /* --- kolumna zegara --- */
+
+  #col-clock {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
   }
 
   #clock {
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 500;
-    font-size: clamp(40px, 13vw, 72px);
+    font-size: clamp(28px, 9vh, 54px);
     letter-spacing: 0.02em;
     line-height: 1;
+    white-space: nowrap;
   }
 
   #date {
     margin-top: 6px;
-    font-size: clamp(13px, 3vw, 16px);
+    font-size: clamp(11px, 2.6vh, 14px);
     color: rgba(245,247,250,0.6);
     text-transform: capitalize;
     letter-spacing: 0.03em;
+    max-width: 22vw;
   }
 
-  /* --- środek: temperatura + ikona --- */
+  /* --- kolumna glowna: ikona + temperatura --- */
 
-  #main {
+  #col-main {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 24px);
   }
 
   #icon-wrap {
-    width: clamp(90px, 26vw, 140px);
-    height: clamp(90px, 26vw, 140px);
+    flex: 0 0 auto;
+    width: clamp(60px, 20vh, 110px);
+    height: clamp(60px, 20vh, 110px);
     color: var(--accent);
     transition: color var(--transition-speed) ease;
   }
 
   #icon-wrap svg { width: 100%; height: 100%; overflow: visible; }
 
+  #main-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+
   #temp {
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
-    font-size: clamp(90px, 30vw, 180px);
-    line-height: 0.95;
+    font-size: clamp(56px, 22vh, 130px);
+    line-height: 0.9;
     letter-spacing: -0.02em;
     display: flex;
     align-items: flex-start;
@@ -96,90 +119,101 @@
   #temp .deg { font-size: 0.35em; font-weight: 500; margin-top: 0.1em; }
 
   #condition {
-    font-size: clamp(16px, 4vw, 22px);
+    font-size: clamp(14px, 3.2vh, 20px);
     font-weight: 500;
+    white-space: nowrap;
   }
 
   #location {
-    font-size: clamp(13px, 3vw, 15px);
+    font-size: clamp(11px, 2.4vh, 14px);
     color: rgba(245,247,250,0.55);
     margin-top: 2px;
   }
 
-  /* --- pasek statystyk --- */
-
-  #stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: clamp(16px, 4vw, 28px);
+  #error-banner {
+    display: none;
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: 12px;
+    color: rgba(245,247,250,0.7);
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 6px 14px;
+    white-space: nowrap;
   }
 
-  .stat { text-align: center; }
+  /* --- kolumna statystyk: siatka 2x2 --- */
+
+  #col-stats {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(6px, 1.5vh, 14px) clamp(14px, 2vw, 28px);
+  }
+
+  .stat { text-align: left; }
 
   .stat .label {
-    font-size: clamp(10px, 2.4vw, 12px);
+    font-size: clamp(9px, 1.8vh, 11px);
     color: rgba(245,247,250,0.5);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    white-space: nowrap;
   }
 
   .stat .value {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: clamp(16px, 4vw, 22px);
+    font-size: clamp(14px, 3vh, 19px);
     font-weight: 500;
     margin-top: 2px;
+    white-space: nowrap;
   }
 
   /* --- dolny pasek: prognoza godzinowa --- */
 
   #hourly {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     gap: 4px;
-    padding: clamp(14px, 3.5vw, 20px) clamp(4px, 2vw, 12px);
+    padding: clamp(8px, 1.5vh, 14px) clamp(10px, 2vw, 20px);
     background: rgba(255,255,255,0.05);
-    border-radius: 20px;
+    border-radius: 16px;
+    margin-top: clamp(8px, 1.5vh, 16px);
   }
 
   .hour {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
     flex: 1;
+    justify-content: center;
   }
 
   .hour .h-time {
-    font-size: clamp(11px, 2.6vw, 13px);
+    font-size: clamp(10px, 2vh, 12px);
     color: rgba(245,247,250,0.55);
   }
 
-  .hour .h-icon { width: clamp(18px, 4.5vw, 24px); height: clamp(18px, 4.5vw, 24px); color: var(--accent); }
+  .hour .h-icon { width: clamp(14px, 2.8vh, 18px); height: clamp(14px, 2.8vh, 18px); color: var(--accent); flex: 0 0 auto; }
   .hour .h-icon svg { width: 100%; height: 100%; }
 
   .hour .h-temp {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: clamp(13px, 3vw, 16px);
+    font-size: clamp(11px, 2.2vh, 14px);
     font-weight: 500;
   }
 
   #footer {
+    flex: 0 0 auto;
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     color: rgba(245,247,250,0.3);
-    margin-top: 8px;
-  }
-
-  #error-banner {
-    display: none;
-    text-align: center;
-    font-size: 13px;
-    color: rgba(245,247,250,0.7);
-    background: rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 8px;
+    margin-top: 4px;
   }
 
   /* proste animacje ikon pogodowych */
@@ -199,34 +233,53 @@
   .anim-fog:nth-child(2) { animation-delay: 0.7s; }
   .anim-fog:nth-child(3) { animation-delay: 1.4s; }
 
+  /* --- awaryjnie: gdyby telefon jednak wyswietlal w pionie --- */
+  @media (orientation: portrait) {
+    #container { flex-direction: column; justify-content: center; gap: clamp(8px, 2vh, 20px); }
+    #col-clock { align-items: center; text-align: center; }
+    #date { max-width: none; }
+    #col-main { flex-direction: column; }
+    #main-text { align-items: center; }
+    #col-stats { grid-template-columns: repeat(4, 1fr); width: 100%; }
+    .stat { text-align: center; }
+    #clock { font-size: clamp(36px, 11vw, 64px); }
+    #temp { font-size: clamp(80px, 26vw, 150px); }
+    #icon-wrap { width: clamp(70px, 22vw, 120px); height: clamp(70px, 22vw, 120px); }
+  }
+
 </style>
 </head>
 <body>
 
-  <div id="top">
-    <div id="clock">--:--</div>
-    <div id="date">-</div>
-  </div>
+  <div id="error-banner"></div>
 
-  <div id="main">
-    <div id="error-banner"></div>
-    <div id="icon-wrap"></div>
-    <div id="temp">--<span class="deg">°</span></div>
-    <div id="condition">Ładowanie…</div>
-    <div id="location"></div>
+  <div id="container">
 
-    <div id="stats">
+    <div id="col-clock">
+      <div id="clock">--:--</div>
+      <div id="date">-</div>
+    </div>
+
+    <div id="col-main">
+      <div id="icon-wrap"></div>
+      <div id="main-text">
+        <div id="temp">--<span class="deg">°</span></div>
+        <div id="condition">Ładowanie…</div>
+        <div id="location"></div>
+      </div>
+    </div>
+
+    <div id="col-stats">
       <div class="stat"><div class="label">Odczuwalna</div><div class="value" id="stat-feels">--°</div></div>
       <div class="stat"><div class="label">Wilgotność</div><div class="value" id="stat-humidity">--%</div></div>
       <div class="stat"><div class="label">Wiatr</div><div class="value" id="stat-wind">-- km/h</div></div>
       <div class="stat"><div class="label">Zachód</div><div class="value" id="stat-sunset">--:--</div></div>
     </div>
+
   </div>
 
-  <div>
-    <div id="hourly"></div>
-    <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
-  </div>
+  <div id="hourly"></div>
+  <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
 
 <script>
 
@@ -241,8 +294,6 @@
   };
   // ==========================================================================
 
-  // Mapowanie kodów pogodowych WMO (używanych przez Open-Meteo) na opis PL,
-  // kategorię (do wyboru ikony i koloru) i nazwę ikony.
   const WEATHER_CODES = {
     0:  { text: "Bezchmurnie", cat: "clear" },
     1:  { text: "Prawie bezchmurnie", cat: "clear" },
@@ -274,7 +325,6 @@
     99: { text: "Burza z gradem", cat: "storm" }
   };
 
-  // Kolory nieba i akcentu dla każdej kombinacji pora dnia / kategoria pogody
   const THEMES = {
     "day-clear":   { top: "#1f78c4", bottom: "#7fc2ea", accent: "#ffcf6b" },
     "day-cloud":   { top: "#4b5a6b", bottom: "#8a97a3", accent: "#d7dde3" },
@@ -290,7 +340,6 @@
     "night-storm": { top: "#0a0714", bottom: "#241d3c", accent: "#a894f0" }
   };
 
-  // SVG ikon pogodowych — proste, animowane przez klasy CSS zdefiniowane w <style>
   const ICONS = {
     clear: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
       <circle cx="50" cy="50" r="20"/>
@@ -410,7 +459,7 @@
     let startIndex = hourly.time.findIndex(t => t >= currentTimeIso);
     if (startIndex === -1) startIndex = 0;
 
-    for (let i = startIndex + 1; i <= startIndex + 5; i++) {
+    for (let i = startIndex + 1; i <= startIndex + 6; i++) {
       if (!hourly.time[i]) continue;
       const code = hourly.weather_code[i];
       const info = WEATHER_CODES[code] || { cat: "cloud" };
