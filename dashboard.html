@@ -1344,7 +1344,7 @@
         const t = i.track;
         el.appendChild(makeRow(
           t.name,
-          t.artists.map(a => a.name).join(", "),
+          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
           t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
           () => playSpotifyTrack(t.uri)
         ));
@@ -1369,7 +1369,7 @@
       data.items.forEach(t => {
         el.appendChild(makeRow(
           t.name,
-          t.artists.map(a => a.name).join(", "),
+          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
           album.images && album.images.length ? album.images[album.images.length - 1].url : "",
           () => playSpotifyTrack(t.uri)
         ));
@@ -1430,10 +1430,10 @@
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
 
-      const tracks = (data.tracks && data.tracks.items) || [];
-      const artists = (data.artists && data.artists.items) || [];
-      const albums = (data.albums && data.albums.items) || [];
-      const playlists = (data.playlists && data.playlists.items) || [];
+      const tracks = ((data.tracks && data.tracks.items) || []).filter(Boolean);
+      const artists = ((data.artists && data.artists.items) || []).filter(Boolean);
+      const albums = ((data.albums && data.albums.items) || []).filter(Boolean);
+      const playlists = ((data.playlists && data.playlists.items) || []).filter(Boolean);
 
       if (tracks.length === 0 && artists.length === 0 && albums.length === 0 && playlists.length === 0) {
         el.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Brak wyników.</div>`;
@@ -1443,7 +1443,7 @@
       if (tracks.length) {
         el.appendChild(sectionLabel("Utwory"));
         tracks.forEach(t => el.appendChild(makeRow(
-          t.name, t.artists.map(a => a.name).join(", "),
+          t.name, (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
           t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
           () => playSpotifyTrack(t.uri)
         )));
@@ -1459,7 +1459,7 @@
       if (albums.length) {
         el.appendChild(sectionLabel("Albumy"));
         albums.forEach(al => el.appendChild(makeRow(
-          al.name, al.artists.map(a => a.name).join(", "),
+          al.name, (al.artists || []).filter(Boolean).map(a => a.name).join(", "),
           al.images && al.images.length ? al.images[al.images.length - 1].url : "",
           () => showAlbum(al)
         )));
