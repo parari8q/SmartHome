@@ -744,7 +744,7 @@
   //    podgląd "co gra teraz", ale przyciski nie zadziałają.
   // ==========================================================================
   const SPOTIFY_CONFIG = {
-    clientId: "WKLEJ_TU_SWOJ_CLIENT_ID",
+    clientId: "f1282342eb5f4bdfaa8dd8b90fc1a62e",
     redirectUri: window.location.origin + window.location.pathname,
     scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-read-private"
   };
@@ -1036,7 +1036,7 @@
   }
 
   async function startSpotifyLogin() {
-    if (SPOTIFY_CONFIG.clientId === "f1282342eb5f4bdfaa8dd8b90fc1a62e") {
+    if (SPOTIFY_CONFIG.clientId === "WKLEJ_TU_SWOJ_CLIENT_ID") {
       document.getElementById("spotify-status").textContent =
         "Najpierw uzupełnij SPOTIFY_CONFIG.clientId w pliku dashboard.html.";
       return;
