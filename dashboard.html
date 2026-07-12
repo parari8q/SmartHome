@@ -1264,9 +1264,9 @@
       `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Ładowanie…</div>`;
   }
 
-  function setBrowseError() {
+  function setBrowseError(detail) {
     document.getElementById("spotify-search-results").innerHTML =
-      `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Coś poszło nie tak.</div>`;
+      `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Coś poszło nie tak${detail ? " (" + detail + ")" : ""}.</div>`;
   }
 
   function sectionLabel(text) {
@@ -1422,7 +1422,10 @@
     setBrowseLoading();
     try {
       const res = await spotifyApi("/search?type=track,artist,album,playlist&limit=6&q=" + encodeURIComponent(query));
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 120));
+      }
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
@@ -1471,7 +1474,7 @@
       }
     } catch (err) {
       console.error(err);
-      setBrowseError();
+      setBrowseError(err.message);
     }
   }
 
