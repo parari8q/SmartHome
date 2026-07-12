@@ -1334,33 +1334,18 @@
     }
   }
 
-  async function showPlaylistTracks(playlist) {
+  function showPlaylistTracks(playlist) {
     setBrowseTitle(playlist.name);
     spotifyBrowseBack = showSpotifyPlaylists;
-    setBrowseLoading();
-    try {
-      const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error("HTTP " + res.status + " playlist.id=" + playlist.id + " " + body.slice(0, 150));
-      }
-      const data = await res.json();
-      const el = document.getElementById("spotify-search-results");
-      el.innerHTML = "";
-      el.appendChild(makeRow("▶  Odtwórz całą playlistę", "", playlist.images && playlist.images[0] ? playlist.images[0].url : "", () => playSpotifyContext(playlist.uri)));
-      data.items.filter(i => i.track).forEach(i => {
-        const t = i.track;
-        el.appendChild(makeRow(
-          t.name,
-          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
-          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
-          () => playSpotifyTrack(t.uri)
-        ));
-      });
-    } catch (err) {
-      console.error(err);
-      setBrowseError(err.message);
-    }
+    const el = document.getElementById("spotify-search-results");
+    el.innerHTML = "";
+    el.appendChild(makeRow(
+      "▶  Odtwórz całą playlistę",
+      (playlist.tracks ? playlist.tracks.total + " utworów" : ""),
+      playlist.images && playlist.images[0] ? playlist.images[0].url : "",
+      () => playSpotifyContext(playlist.uri)
+    ));
+    el.innerHTML += `<div style="color: rgba(245,247,250,0.4); font-size: 12px; padding: 12px 6px;">Spotify nie pozwala aplikacjom takim jak ta pokazywać pojedynczych utworów z playlist — możesz jednak odtworzyć całą playlistę na aktywnym urządzeniu.</div>`;
   }
 
   async function showAlbum(album) {
