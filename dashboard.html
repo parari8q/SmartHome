@@ -641,6 +641,7 @@
 
     <div id="spotify-logged-out">
       <button id="spotify-login-btn" type="button" onclick="startSpotifyLogin()">Zaloguj się do Spotify</button>
+      <div id="spotify-redirect-debug" style="margin-top: 14px; font-size: 11px; color: rgba(245,247,250,0.4); text-align: center; word-break: break-all; max-width: 70vw;"></div>
     </div>
 
     <div id="spotify-logged-in" style="display:none; flex-direction: column; align-items: center; gap: inherit; position: relative; width: 100%; height: 100%;">
@@ -1529,6 +1530,8 @@
   }
 
   // Start
+  document.getElementById("spotify-redirect-debug").textContent =
+    "Redirect URI używany przez tę stronę: " + SPOTIFY_CONFIG.redirectUri;
   handleSpotifyRedirect();
   renderMenu();
   updateClock();
