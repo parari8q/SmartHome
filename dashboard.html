@@ -1181,23 +1181,36 @@
 
   async function spotifyTogglePlay() {
     try {
-      await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
+      const res = await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
       spotifyIsPlaying = !spotifyIsPlaying;
       setTimeout(refreshSpotifyNowPlaying, 400);
-    } catch {
-      document.getElementById("spotify-status").textContent =
-        "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify.";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
     }
   }
 
   async function spotifyNext() {
-    try { await spotifyApi("/me/player/next", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
-    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+    try {
+      const res = await spotifyApi("/me/player/next", { method: "POST" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
+      setTimeout(refreshSpotifyNowPlaying, 500);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
+    }
   }
 
   async function spotifyPrevious() {
-    try { await spotifyApi("/me/player/previous", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
-    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
+    try {
+      const res = await spotifyApi("/me/player/previous", { method: "POST" });
+      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
+      setTimeout(refreshSpotifyNowPlaying, 500);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
+    }
   }
 
   function openSpotifyView() {
@@ -1481,33 +1494,42 @@
 
   async function playSpotifyTrack(uri) {
     try {
-      await spotifyApi("/me/player/play", {
+      const res = await spotifyApi("/me/player/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uris: [uri] })
       });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       closeSpotifySearch();
       document.getElementById("spotify-status").textContent = "";
       setTimeout(refreshSpotifyNowPlaying, 600);
-    } catch {
-      document.getElementById("spotify-status").textContent =
-        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("spotify-status").textContent = "Nie udało się odtworzyć: " + err.message;
     }
   }
 
   async function playSpotifyContext(contextUri) {
     try {
-      await spotifyApi("/me/player/play", {
+      const res = await spotifyApi("/me/player/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ context_uri: contextUri })
       });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
+      }
       closeSpotifySearch();
       document.getElementById("spotify-status").textContent = "";
       setTimeout(refreshSpotifyNowPlaying, 600);
-    } catch {
+    } catch (err) {
+      console.error(err);
       document.getElementById("spotify-status").textContent =
-        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
+        "Nie udało się odtworzyć: " + err.message;
     }
   }
 
