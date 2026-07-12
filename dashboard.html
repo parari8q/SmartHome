@@ -747,7 +747,7 @@
   const SPOTIFY_CONFIG = {
     clientId: "f1282342eb5f4bdfaa8dd8b90fc1a62e",
     redirectUri: window.location.origin + window.location.pathname,
-    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-read-private"
+    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-read-private"
   };
 
   const WEATHER_CODES = {
@@ -1181,36 +1181,23 @@
 
   async function spotifyTogglePlay() {
     try {
-      const res = await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
-      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
+      await spotifyApi(spotifyIsPlaying ? "/me/player/pause" : "/me/player/play", { method: "PUT" });
       spotifyIsPlaying = !spotifyIsPlaying;
       setTimeout(refreshSpotifyNowPlaying, 400);
-    } catch (err) {
-      console.error(err);
-      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
+    } catch {
+      document.getElementById("spotify-status").textContent =
+        "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify.";
     }
   }
 
   async function spotifyNext() {
-    try {
-      const res = await spotifyApi("/me/player/next", { method: "POST" });
-      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
-      setTimeout(refreshSpotifyNowPlaying, 500);
-    } catch (err) {
-      console.error(err);
-      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
-    }
+    try { await spotifyApi("/me/player/next", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
+    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
   }
 
   async function spotifyPrevious() {
-    try {
-      const res = await spotifyApi("/me/player/previous", { method: "POST" });
-      if (!res.ok) { const body = await res.text(); throw new Error("HTTP " + res.status + " " + body.slice(0, 150)); }
-      setTimeout(refreshSpotifyNowPlaying, 500);
-    } catch (err) {
-      console.error(err);
-      document.getElementById("spotify-status").textContent = "Nie udało się sterować: " + err.message;
-    }
+    try { await spotifyApi("/me/player/previous", { method: "POST" }); setTimeout(refreshSpotifyNowPlaying, 500); }
+    catch { document.getElementById("spotify-status").textContent = "Sterowanie wymaga konta Premium i aktywnego urządzenia Spotify."; }
   }
 
   function openSpotifyView() {
@@ -1347,18 +1334,33 @@
     }
   }
 
-  function showPlaylistTracks(playlist) {
+  async function showPlaylistTracks(playlist) {
     setBrowseTitle(playlist.name);
     spotifyBrowseBack = showSpotifyPlaylists;
-    const el = document.getElementById("spotify-search-results");
-    el.innerHTML = "";
-    el.appendChild(makeRow(
-      "▶  Odtwórz całą playlistę",
-      (playlist.tracks ? playlist.tracks.total + " utworów" : ""),
-      playlist.images && playlist.images[0] ? playlist.images[0].url : "",
-      () => playSpotifyContext(playlist.uri)
-    ));
-    el.innerHTML += `<div style="color: rgba(245,247,250,0.4); font-size: 12px; padding: 12px 6px;">Spotify nie pozwala aplikacjom takim jak ta pokazywać pojedynczych utworów z playlist — możesz jednak odtworzyć całą playlistę na aktywnym urządzeniu.</div>`;
+    setBrowseLoading();
+    try {
+      const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " playlist.id=" + playlist.id + " " + body.slice(0, 150));
+      }
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      el.appendChild(makeRow("▶  Odtwórz całą playlistę", "", playlist.images && playlist.images[0] ? playlist.images[0].url : "", () => playSpotifyContext(playlist.uri)));
+      data.items.filter(i => i.track).forEach(i => {
+        const t = i.track;
+        el.appendChild(makeRow(
+          t.name,
+          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError(err.message);
+    }
   }
 
   async function showAlbum(album) {
@@ -1494,44 +1496,45 @@
 
   async function playSpotifyTrack(uri) {
     try {
-      const res = await spotifyApi("/me/player/play", {
+      await spotifyApi("/me/player/play", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uris: [uri] })
       });
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
-      }
       closeSpotifySearch();
       document.getElementById("spotify-status").textContent = "";
       setTimeout(refreshSpotifyNowPlaying, 600);
-    } catch (err) {
-      console.error(err);
-      document.getElementById("spotify-status").textContent = "Nie udało się odtworzyć: " + err.message;
+    } catch {
+      document.getElementById("spotify-status").textContent =
+        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
     }
   }
 
-  async function playSpotifyContext(contextUri) {
-    try {
-      const res = await spotifyApi("/me/player/play", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context_uri: contextUri })
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error("HTTP " + res.status + " " + body.slice(0, 150));
-      }
-      closeSpotifySearch();
-      document.getElementById("spotify-status").textContent = "";
-      setTimeout(refreshSpotifyNowPlaying, 600);
-    } catch (err) {
-      console.error(err);
+async function playSpotifyContext(contextUri) {
+  try {
+    const res = await spotifyApi("/me/player/play", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context_uri: contextUri })
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("Spotify error:", res.status, txt);
+
       document.getElementById("spotify-status").textContent =
-        "Nie udało się odtworzyć: " + err.message;
+        `Spotify zwrócił błąd ${res.status}`;
+
+      return;
     }
+
+    closeSpotifySearch();
+    setTimeout(refreshSpotifyNowPlaying, 600);
+
+  } catch (e) {
+    console.error(e);
   }
+}
 
   let spotifyVolumeDebounce = null;
 
