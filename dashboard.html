@@ -489,7 +489,8 @@
   #spotify-search-bar button svg { width: 100%; height: 100%; }
 
   #spotify-search-input {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 100%;
     background: rgba(255,255,255,0.08);
     border: none;
     border-radius: 999px;
@@ -532,6 +533,38 @@
   }
 
   .search-result .sr-text { min-width: 0; }
+
+  #spotify-browse-title {
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sr-section-label {
+    font-size: clamp(10px, 1.8vh, 11px);
+    color: rgba(245,247,250,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 6px 2px;
+  }
+
+  #spotify-volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(70vw, 260px);
+  }
+
+  #spotify-volume svg { width: 16px; height: 16px; color: rgba(245,247,250,0.5); flex: 0 0 auto; }
+
+  #spotify-volume input[type="range"] {
+    flex: 1;
+    accent-color: #3fae63;
+  }
 
   .search-result .sr-title {
     font-size: clamp(12px, 2.2vh, 14px);
@@ -631,15 +664,23 @@
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l11 6-11 6z"/></svg>
           </button>
         </div>
+
+        <div id="spotify-volume">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10v4h4l5 5V5L7 10H3z"/></svg>
+          <input type="range" min="0" max="100" value="50" id="spotify-volume-slider" oninput="onSpotifyVolumeInput(this.value)">
+        </div>
+
+        <button type="button" onclick="spotifyLogout()" style="background:none; border:none; color: rgba(245,247,250,0.35); font-size: 11px; font-family: 'Inter', sans-serif; text-decoration: underline;">Wyloguj</button>
       </div>
 
       <div id="spotify-search-section">
         <div id="spotify-search-bar">
-          <button type="button" onclick="closeSpotifySearch()" aria-label="Wróć do odtwarzacza">
+          <button type="button" onclick="spotifyBrowseGoBack()" aria-label="Wróć">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
-          <input id="spotify-search-input" type="text" placeholder="Szukaj utworu lub wykonawcy" oninput="onSpotifySearchInput()">
+          <div id="spotify-browse-title">Twoje playlisty</div>
         </div>
+        <input id="spotify-search-input" type="text" placeholder="Szukaj utworu, wykonawcy, playlisty…" oninput="onSpotifySearchInput()">
         <div id="spotify-search-results"></div>
       </div>
 
@@ -705,7 +746,7 @@
   const SPOTIFY_CONFIG = {
     clientId: "WKLEJ_TU_SWOJ_CLIENT_ID",
     redirectUri: window.location.origin + window.location.pathname,
-    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing"
+    scopes: "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-read-private"
   };
 
   const WEATHER_CODES = {
@@ -1090,7 +1131,7 @@
   async function refreshSpotifyNowPlaying() {
     const statusEl = document.getElementById("spotify-status");
     try {
-      const res = await spotifyApi("/me/player/currently-playing");
+      const res = await spotifyApi("/me/player");
       if (res.status === 204) {
         statusEl.textContent = "Nic teraz nie gra. Włącz coś w aplikacji Spotify na innym urządzeniu.";
         document.getElementById("spotify-art").style.display = "none";
@@ -1101,6 +1142,10 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       if (!data || !data.item) return;
+
+      if (data.device && typeof data.device.volume_percent === "number") {
+        document.getElementById("spotify-volume-slider").value = data.device.volume_percent;
+      }
 
       spotifyIsPlaying = data.is_playing;
       document.getElementById("spotify-track").textContent = data.item.name;
@@ -1174,18 +1219,22 @@
   }
 
   // ==========================================================================
-  // WYSZUKIWANIE — szukamy utworu i odtwarzamy go na aktualnie aktywnym
-  // urządzeniu Spotify (np. tym samym, na którym wcześniej coś odtwarzałeś).
+  // PRZEGLĄDANIE — Twoje playlisty, wyszukiwanie (utwory/wykonawcy/albumy/
+  // playlisty), wejście w playlistę/album/wykonawcę i odtwarzanie wyników
+  // na aktualnie aktywnym urządzeniu Spotify.
   // ==========================================================================
 
   let spotifySearchDebounce = null;
+  let spotifyBrowseBack = null;   // funkcja do wywolania po "wstecz", albo null = wroc do odtwarzacza
+  let spotifyMarket = null;       // kod kraju, potrzebny do listy top utworow wykonawcy
 
   function openSpotifySearch() {
     document.getElementById("spotify-player-section").style.display = "none";
     document.getElementById("spotify-search-section").style.display = "flex";
     document.getElementById("spotify-search-btn").style.display = "none";
     document.getElementById("spotify-search-input").value = "";
-    document.getElementById("spotify-search-results").innerHTML = "";
+    spotifyBrowseBack = null;
+    showSpotifyPlaylists();
     document.getElementById("spotify-search-input").focus();
   }
 
@@ -1195,50 +1244,233 @@
     document.getElementById("spotify-search-btn").style.display = "flex";
   }
 
+  function spotifyBrowseGoBack() {
+    if (spotifyBrowseBack) {
+      const fn = spotifyBrowseBack;
+      spotifyBrowseBack = null;
+      fn();
+    } else {
+      closeSpotifySearch();
+    }
+  }
+
+  function setBrowseTitle(text) {
+    document.getElementById("spotify-browse-title").textContent = text;
+  }
+
+  function setBrowseLoading() {
+    document.getElementById("spotify-search-results").innerHTML =
+      `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Ładowanie…</div>`;
+  }
+
+  function setBrowseError() {
+    document.getElementById("spotify-search-results").innerHTML =
+      `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Coś poszło nie tak.</div>`;
+  }
+
+  function sectionLabel(text) {
+    const div = document.createElement("div");
+    div.className = "sr-section-label";
+    div.textContent = text;
+    return div;
+  }
+
+  function makeRow(title, subtitle, imgUrl, onClick) {
+    const btn = document.createElement("button");
+    btn.className = "search-result";
+    btn.type = "button";
+    btn.innerHTML = `
+      ${imgUrl ? `<img src="${imgUrl}" alt="">` : `<div style="width:36px;height:36px;border-radius:6px;background:rgba(255,255,255,0.06);flex:0 0 auto;"></div>`}
+      <div class="sr-text">
+        <div class="sr-title">${title}</div>
+        <div class="sr-artist">${subtitle || ""}</div>
+      </div>
+    `;
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+
+  async function getSpotifyMarket() {
+    if (spotifyMarket) return spotifyMarket;
+    try {
+      const res = await spotifyApi("/me");
+      const data = await res.json();
+      spotifyMarket = data.country || "PL";
+    } catch {
+      spotifyMarket = "PL";
+    }
+    return spotifyMarket;
+  }
+
+  async function showSpotifyPlaylists() {
+    setBrowseTitle("Twoje playlisty");
+    spotifyBrowseBack = null;
+    setBrowseLoading();
+    try {
+      const res = await spotifyApi("/me/playlists?limit=30");
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      if (!data.items || data.items.length === 0) {
+        el.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Nie masz jeszcze żadnych playlist.</div>`;
+        return;
+      }
+      data.items.forEach(pl => {
+        el.appendChild(makeRow(
+          pl.name,
+          (pl.tracks ? pl.tracks.total : 0) + " utworów",
+          pl.images && pl.images[0] ? pl.images[0].url : "",
+          () => showPlaylistTracks(pl)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError();
+    }
+  }
+
+  async function showPlaylistTracks(playlist) {
+    setBrowseTitle(playlist.name);
+    spotifyBrowseBack = showSpotifyPlaylists;
+    setBrowseLoading();
+    try {
+      const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      el.appendChild(makeRow("▶  Odtwórz całą playlistę", "", playlist.images && playlist.images[0] ? playlist.images[0].url : "", () => playSpotifyContext(playlist.uri)));
+      data.items.filter(i => i.track).forEach(i => {
+        const t = i.track;
+        el.appendChild(makeRow(
+          t.name,
+          t.artists.map(a => a.name).join(", "),
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError();
+    }
+  }
+
+  async function showAlbum(album) {
+    setBrowseTitle(album.name);
+    const backFn = spotifyBrowseBack;
+    spotifyBrowseBack = backFn || showSpotifyPlaylists;
+    setBrowseLoading();
+    try {
+      const res = await spotifyApi(`/albums/${album.id}/tracks?limit=50`);
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      el.appendChild(makeRow("▶  Odtwórz cały album", album.artists.map(a => a.name).join(", "), album.images && album.images[0] ? album.images[0].url : "", () => playSpotifyContext(album.uri)));
+      data.items.forEach(t => {
+        el.appendChild(makeRow(
+          t.name,
+          t.artists.map(a => a.name).join(", "),
+          album.images && album.images.length ? album.images[album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError();
+    }
+  }
+
+  async function showArtist(artist) {
+    setBrowseTitle(artist.name);
+    const backFn = spotifyBrowseBack;
+    spotifyBrowseBack = backFn || showSpotifyPlaylists;
+    setBrowseLoading();
+    try {
+      const market = await getSpotifyMarket();
+      const res = await spotifyApi(`/artists/${artist.id}/top-tracks?market=${market}`);
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      el.appendChild(sectionLabel("Najpopularniejsze utwory"));
+      (data.tracks || []).forEach(t => {
+        el.appendChild(makeRow(
+          t.name,
+          t.album ? t.album.name : "",
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError();
+    }
+  }
+
   function onSpotifySearchInput() {
     clearTimeout(spotifySearchDebounce);
     const query = document.getElementById("spotify-search-input").value.trim();
     if (!query) {
-      document.getElementById("spotify-search-results").innerHTML = "";
+      showSpotifyPlaylists();
       return;
     }
     spotifySearchDebounce = setTimeout(() => runSpotifySearch(query), 400);
   }
 
   async function runSpotifySearch(query) {
-    const resultsEl = document.getElementById("spotify-search-results");
+    setBrowseTitle("Wyniki: " + query);
+    spotifyBrowseBack = showSpotifyPlaylists;
+    setBrowseLoading();
     try {
-      const res = await spotifyApi("/search?type=track&limit=10&q=" + encodeURIComponent(query));
+      const res = await spotifyApi("/search?type=track,artist,album,playlist&limit=6&q=" + encodeURIComponent(query));
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      const tracks = (data.tracks && data.tracks.items) || [];
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
 
-      resultsEl.innerHTML = "";
-      if (tracks.length === 0) {
-        resultsEl.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Brak wyników.</div>`;
+      const tracks = (data.tracks && data.tracks.items) || [];
+      const artists = (data.artists && data.artists.items) || [];
+      const albums = (data.albums && data.albums.items) || [];
+      const playlists = (data.playlists && data.playlists.items) || [];
+
+      if (tracks.length === 0 && artists.length === 0 && albums.length === 0 && playlists.length === 0) {
+        el.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Brak wyników.</div>`;
         return;
       }
 
-      tracks.forEach(track => {
-        const artUrl = track.album && track.album.images && track.album.images.length
-          ? track.album.images[track.album.images.length - 1].url
-          : "";
-        const btn = document.createElement("button");
-        btn.className = "search-result";
-        btn.type = "button";
-        btn.innerHTML = `
-          ${artUrl ? `<img src="${artUrl}" alt="">` : `<div style="width:36px;height:36px;border-radius:6px;background:rgba(255,255,255,0.06);flex:0 0 auto;"></div>`}
-          <div class="sr-text">
-            <div class="sr-title">${track.name}</div>
-            <div class="sr-artist">${track.artists.map(a => a.name).join(", ")}</div>
-          </div>
-        `;
-        btn.addEventListener("click", () => playSpotifyTrack(track.uri));
-        resultsEl.appendChild(btn);
-      });
+      if (tracks.length) {
+        el.appendChild(sectionLabel("Utwory"));
+        tracks.forEach(t => el.appendChild(makeRow(
+          t.name, t.artists.map(a => a.name).join(", "),
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        )));
+      }
+      if (artists.length) {
+        el.appendChild(sectionLabel("Wykonawcy"));
+        artists.forEach(a => el.appendChild(makeRow(
+          a.name, "Wykonawca",
+          a.images && a.images.length ? a.images[a.images.length - 1].url : "",
+          () => showArtist(a)
+        )));
+      }
+      if (albums.length) {
+        el.appendChild(sectionLabel("Albumy"));
+        albums.forEach(al => el.appendChild(makeRow(
+          al.name, al.artists.map(a => a.name).join(", "),
+          al.images && al.images.length ? al.images[al.images.length - 1].url : "",
+          () => showAlbum(al)
+        )));
+      }
+      if (playlists.length) {
+        el.appendChild(sectionLabel("Playlisty"));
+        playlists.forEach(pl => el.appendChild(makeRow(
+          pl.name, pl.owner ? pl.owner.display_name : "",
+          pl.images && pl.images[0] ? pl.images[0].url : "",
+          () => showPlaylistTracks(pl)
+        )));
+      }
     } catch (err) {
       console.error(err);
-      resultsEl.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Nie udało się wyszukać.</div>`;
+      setBrowseError();
     }
   }
 
@@ -1256,6 +1488,44 @@
       document.getElementById("spotify-status").textContent =
         "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
     }
+  }
+
+  async function playSpotifyContext(contextUri) {
+    try {
+      await spotifyApi("/me/player/play", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context_uri: contextUri })
+      });
+      closeSpotifySearch();
+      document.getElementById("spotify-status").textContent = "";
+      setTimeout(refreshSpotifyNowPlaying, 600);
+    } catch {
+      document.getElementById("spotify-status").textContent =
+        "Nie udało się odtworzyć — sprawdź czy masz aktywne urządzenie Spotify.";
+    }
+  }
+
+  let spotifyVolumeDebounce = null;
+
+  function onSpotifyVolumeInput(value) {
+    clearTimeout(spotifyVolumeDebounce);
+    spotifyVolumeDebounce = setTimeout(async () => {
+      try {
+        await spotifyApi(`/me/player/volume?volume_percent=${value}`, { method: "PUT" });
+      } catch {
+        document.getElementById("spotify-status").textContent =
+          "Nie udało się zmienić głośności — sprawdź czy masz aktywne urządzenie Spotify.";
+      }
+    }, 300);
+  }
+
+  function spotifyLogout() {
+    localStorage.removeItem("spotify_tokens");
+    localStorage.removeItem("spotify_verifier");
+    closeSpotifyView();
+    document.getElementById("spotify-logged-out").style.display = "flex";
+    document.getElementById("spotify-logged-in").style.display = "none";
   }
 
   // Start
