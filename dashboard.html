@@ -1822,18 +1822,43 @@
   // ==========================================================================
   // ZADANIA — kilka oddzielnych list, kazda z prosta lista pozycji do
   // odhaczenia. Odhaczone zostaja przekreslone na liscie, usuwa sie je
-  // recznie przyciskiem "x". Wszystko trwale zapisane w pamieci telefonu.
+  // recznie przyciskiem "x". Zapisane w Firebase Realtime Database, wiec
+  // dowolne inne urzadzenie z otwarta ta sama strona widzi te same dane
+  // na biezaco, bez potrzeby odswiezania.
   // ==========================================================================
 
+  const FIREBASE_DB_URL = "https://smarthome-cdd0e-default-rtdb.europe-west1.firebasedatabase.app";
+
   let todoCurrentListId = null; // null = jestesmy na ekranie "wszystkie listy"
+  let todoLists = [];           // lokalna kopia, trzymana w zgodzie z Firebase
 
   function getTodoLists() {
-    try { return JSON.parse(localStorage.getItem("todo_lists") || "[]"); }
-    catch { return []; }
+    return todoLists;
   }
 
   function saveTodoLists(lists) {
-    localStorage.setItem("todo_lists", JSON.stringify(lists));
+    todoLists = lists;
+    fetch(FIREBASE_DB_URL + "/todo_lists.json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lists)
+    }).catch(err => console.error("Błąd zapisu zadań do Firebase:", err));
+  }
+
+  function connectTodoSync() {
+    const source = new EventSource(FIREBASE_DB_URL + "/todo_lists.json");
+    source.addEventListener("put", (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        todoLists = payload.data || [];
+        renderTodoScreen();
+      } catch (err) {
+        console.error("Błąd odczytu zadań z Firebase:", err);
+      }
+    });
+    source.onerror = () => {
+      console.warn("Połączenie z bazą zadań przerwane — przeglądarka spróbuje wznowić automatycznie.");
+    };
   }
 
   function openTodoView() {
@@ -1991,6 +2016,7 @@
   document.getElementById("spotify-redirect-debug").textContent =
     "Redirect URI używany przez tę stronę: " + SPOTIFY_CONFIG.redirectUri;
   handleSpotifyRedirect();
+  connectTodoSync();
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
