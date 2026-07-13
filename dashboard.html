@@ -872,6 +872,7 @@
       <div id="todo-title">Zadania</div>
     </div>
     <div id="todo-content"></div>
+    <div id="todo-status" style="font-size: 11px; color: rgba(245,247,250,0.4); padding: 4px 4px 0;"></div>
     <div id="todo-input-bar">
       <input id="todo-input" type="text" placeholder="Nowa pozycja…" onkeydown="if(event.key==='Enter') todoSubmitInput()">
       <button type="button" onclick="todoSubmitInput()">Dodaj</button>
@@ -1842,21 +1843,38 @@
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(lists)
-    }).catch(err => console.error("Błąd zapisu zadań do Firebase:", err));
+    }).then(async (res) => {
+      const statusEl = document.getElementById("todo-status");
+      if (!res.ok) {
+        const body = await res.text();
+        statusEl.textContent = "Błąd zapisu: HTTP " + res.status + " " + body.slice(0, 150);
+      } else if (statusEl) {
+        statusEl.textContent = "";
+      }
+    }).catch(err => {
+      console.error("Błąd zapisu zadań do Firebase:", err);
+      const statusEl = document.getElementById("todo-status");
+      if (statusEl) statusEl.textContent = "Błąd sieci przy zapisie: " + err.message;
+    });
   }
 
   function connectTodoSync() {
+    const statusEl = document.getElementById("todo-status");
+    if (statusEl) statusEl.textContent = "Łączenie z bazą…";
     const source = new EventSource(FIREBASE_DB_URL + "/todo_lists.json");
     source.addEventListener("put", (e) => {
       try {
         const payload = JSON.parse(e.data);
         todoLists = payload.data || [];
         renderTodoScreen();
+        if (statusEl) statusEl.textContent = "";
       } catch (err) {
         console.error("Błąd odczytu zadań z Firebase:", err);
+        if (statusEl) statusEl.textContent = "Błąd odczytu danych: " + err.message;
       }
     });
     source.onerror = () => {
+      if (statusEl) statusEl.textContent = "Błąd połączenia z bazą zadań.";
       console.warn("Połączenie z bazą zadań przerwane — przeglądarka spróbuje wznowić automatycznie.");
     };
   }
