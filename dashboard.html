@@ -1832,6 +1832,7 @@
 
   let todoCurrentListId = null; // null = jestesmy na ekranie "wszystkie listy"
   let todoLists = [];           // lokalna kopia, trzymana w zgodzie z Firebase
+  let todoSuppressSyncUntil = 0; // przez chwile po wlasnym zapisie ignorujemy echo z bazy
 
   function getTodoLists() {
     return todoLists;
@@ -1839,6 +1840,7 @@
 
   function saveTodoLists(lists) {
     todoLists = lists;
+    todoSuppressSyncUntil = Date.now() + 2500;
     fetch(FIREBASE_DB_URL + "/todo_lists.json", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1864,6 +1866,7 @@
     const source = new EventSource(FIREBASE_DB_URL + "/todo_lists.json");
     source.addEventListener("put", (e) => {
       try {
+        if (Date.now() < todoSuppressSyncUntil) return; // ignorujemy echo naszego wlasnego, swiezego zapisu
         const payload = JSON.parse(e.data);
         todoLists = payload.data || [];
         renderTodoScreen();
