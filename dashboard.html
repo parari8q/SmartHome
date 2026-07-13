@@ -582,6 +582,180 @@
     text-overflow: ellipsis;
   }
 
+  /* --- widok zadan --- */
+
+  #todo-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #120e1c 0%, #1e1830 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 20;
+  }
+
+  #todo-view.open { transform: translateY(0); }
+
+  #todo-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: clamp(10px, 2vh, 18px);
+  }
+
+  #todo-back {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+  }
+
+  #todo-back svg { width: 100%; height: 100%; }
+
+  #todo-title {
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #todo-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #todo-input-bar {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    margin-top: clamp(10px, 2vh, 16px);
+  }
+
+  #todo-input-bar input {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  #todo-input-bar input::placeholder { color: rgba(245,247,250,0.4); }
+
+  #todo-input-bar button {
+    background: #7c6fd1;
+    color: #120e1c;
+    border: none;
+    border-radius: 999px;
+    padding: 0 20px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  .todo-list-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.05);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #f5f7fa;
+    text-align: left;
+  }
+
+  .todo-list-row:active { background: rgba(255,255,255,0.09); }
+
+  .todo-list-row .tl-name {
+    flex: 1;
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .todo-list-row .tl-count {
+    font-size: clamp(11px, 2vh, 13px);
+    color: rgba(245,247,250,0.45);
+    flex: 0 0 auto;
+  }
+
+  .todo-list-row .tl-delete {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.3);
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .todo-list-row .tl-delete svg { width: 100%; height: 100%; }
+
+  .todo-task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .todo-task-row .tt-check {
+    width: clamp(22px, 4.5vh, 26px);
+    height: clamp(22px, 4.5vh, 26px);
+    border-radius: 50%;
+    border: 2px solid rgba(245,247,250,0.35);
+    background: none;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+  }
+
+  .todo-task-row.done .tt-check {
+    background: #7c6fd1;
+    border-color: #7c6fd1;
+    color: #120e1c;
+  }
+
+  .todo-task-row .tt-check svg { width: 65%; height: 65%; }
+
+  .todo-task-row .tt-text {
+    flex: 1;
+    font-size: clamp(13px, 2.6vh, 16px);
+    word-break: break-word;
+  }
+
+  .todo-task-row.done .tt-text {
+    text-decoration: line-through;
+    color: rgba(245,247,250,0.4);
+  }
+
+  .todo-task-row .tt-delete {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.3);
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .todo-task-row .tt-delete svg { width: 100%; height: 100%; }
+
 </style>
 </head>
 <body>
@@ -690,6 +864,20 @@
     <div id="spotify-status"></div>
   </div>
 
+  <div id="todo-view">
+    <div id="todo-header">
+      <button id="todo-back" type="button" onclick="todoGoBack()" aria-label="Wróć">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="todo-title">Zadania</div>
+    </div>
+    <div id="todo-content"></div>
+    <div id="todo-input-bar">
+      <input id="todo-input" type="text" placeholder="Nowa pozycja…" onkeydown="if(event.key==='Enter') todoSubmitInput()">
+      <button type="button" onclick="todoSubmitInput()">Dodaj</button>
+    </div>
+  </div>
+
 <script>
 
   // ==========================================================================
@@ -722,6 +910,13 @@
       action: "spotify",
       background: "linear-gradient(135deg, #3fae63, #2c8049)",
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M7 10c4-1 8-0.5 11 1.2"/><path d="M7.5 13c3-0.8 6.5-0.4 9 1"/><path d="M8 16c2.3-0.6 5-0.3 7 0.7"/></svg>`
+    },
+    {
+      id: "todo",
+      label: "Zadania",
+      action: "todo",
+      background: "linear-gradient(135deg, #7c6fd1, #5548a8)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="3"/></svg>`
     },
     {
       id: "home",
@@ -958,6 +1153,7 @@
         el.addEventListener("click", () => {
           if (tile.action === "home") closeMenu();
           if (tile.action === "spotify") { closeMenu(); openSpotifyView(); }
+          if (tile.action === "todo") { closeMenu(); openTodoView(); }
         });
       }
       el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
@@ -989,13 +1185,16 @@
     const deltaY = e.changedTouches[0].clientY - touchStartY;
     const menuOpen = document.getElementById("menu-view").classList.contains("open");
     const spotifyOpen = document.getElementById("spotify-view").classList.contains("open");
+    const todoOpen = document.getElementById("todo-view").classList.contains("open");
 
-    if (!menuOpen && !spotifyOpen && deltaY < -SWIPE_THRESHOLD) {
+    if (!menuOpen && !spotifyOpen && !todoOpen && deltaY < -SWIPE_THRESHOLD) {
       openMenu();
     } else if (menuOpen && deltaY > SWIPE_THRESHOLD) {
       closeMenu();
     } else if (spotifyOpen && deltaY > SWIPE_THRESHOLD) {
       closeSpotifyView();
+    } else if (todoOpen && deltaY > SWIPE_THRESHOLD) {
+      todoGoBack();
     }
     touchStartY = null;
   }, { passive: true });
@@ -1618,6 +1817,174 @@
     closeSpotifyView();
     document.getElementById("spotify-logged-out").style.display = "flex";
     document.getElementById("spotify-logged-in").style.display = "none";
+  }
+
+  // ==========================================================================
+  // ZADANIA — kilka oddzielnych list, kazda z prosta lista pozycji do
+  // odhaczenia. Odhaczone zostaja przekreslone na liscie, usuwa sie je
+  // recznie przyciskiem "x". Wszystko trwale zapisane w pamieci telefonu.
+  // ==========================================================================
+
+  let todoCurrentListId = null; // null = jestesmy na ekranie "wszystkie listy"
+
+  function getTodoLists() {
+    try { return JSON.parse(localStorage.getItem("todo_lists") || "[]"); }
+    catch { return []; }
+  }
+
+  function saveTodoLists(lists) {
+    localStorage.setItem("todo_lists", JSON.stringify(lists));
+  }
+
+  function openTodoView() {
+    todoCurrentListId = null;
+    document.getElementById("todo-view").classList.add("open");
+    renderTodoScreen();
+  }
+
+  function closeTodoView() {
+    document.getElementById("todo-view").classList.remove("open");
+  }
+
+  function todoGoBack() {
+    if (todoCurrentListId !== null) {
+      todoCurrentListId = null;
+      renderTodoScreen();
+    } else {
+      closeTodoView();
+    }
+  }
+
+  function renderTodoScreen() {
+    if (todoCurrentListId === null) {
+      renderTodoListsScreen();
+    } else {
+      renderTodoTasksScreen();
+    }
+  }
+
+  function renderTodoListsScreen() {
+    document.getElementById("todo-title").textContent = "Zadania";
+    document.getElementById("todo-input").placeholder = "Nazwa nowej listy…";
+    const content = document.getElementById("todo-content");
+    content.innerHTML = "";
+
+    const lists = getTodoLists();
+    if (lists.length === 0) {
+      content.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Nie masz jeszcze żadnej listy — dodaj pierwszą na dole.</div>`;
+      return;
+    }
+
+    lists.forEach(list => {
+      const openCount = list.tasks.filter(t => !t.done).length;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "todo-list-row";
+      row.innerHTML = `
+        <span class="tl-name">${list.name}</span>
+        <span class="tl-count">${openCount}</span>
+        <span class="tl-delete" title="Usuń listę">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </span>
+      `;
+      row.querySelector(".tl-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteTodoList(list.id);
+      });
+      row.addEventListener("click", () => {
+        todoCurrentListId = list.id;
+        renderTodoScreen();
+      });
+      content.appendChild(row);
+    });
+  }
+
+  function renderTodoTasksScreen() {
+    const lists = getTodoLists();
+    const list = lists.find(l => l.id === todoCurrentListId);
+    if (!list) { todoCurrentListId = null; renderTodoListsScreen(); return; }
+
+    document.getElementById("todo-title").textContent = list.name;
+    document.getElementById("todo-input").placeholder = "Nowa pozycja…";
+    const content = document.getElementById("todo-content");
+    content.innerHTML = "";
+
+    if (list.tasks.length === 0) {
+      content.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Ta lista jest pusta — dodaj pierwszą pozycję na dole.</div>`;
+      return;
+    }
+
+    list.tasks.forEach(task => {
+      const row = document.createElement("div");
+      row.className = "todo-task-row" + (task.done ? " done" : "");
+      row.innerHTML = `
+        <button class="tt-check" type="button" aria-label="Odhacz">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <div class="tt-text">${task.text}</div>
+        <button class="tt-delete" type="button" aria-label="Usuń">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      `;
+      row.querySelector(".tt-check").addEventListener("click", () => toggleTodoTask(task.id));
+      row.querySelector(".tt-delete").addEventListener("click", () => deleteTodoTask(task.id));
+      content.appendChild(row);
+    });
+  }
+
+  function todoSubmitInput() {
+    const input = document.getElementById("todo-input");
+    const value = input.value.trim();
+    if (!value) return;
+    input.value = "";
+
+    if (todoCurrentListId === null) {
+      createTodoList(value);
+    } else {
+      addTodoTask(todoCurrentListId, value);
+    }
+  }
+
+  function createTodoList(name) {
+    const lists = getTodoLists();
+    lists.push({ id: "list_" + Date.now(), name, tasks: [] });
+    saveTodoLists(lists);
+    renderTodoListsScreen();
+  }
+
+  function deleteTodoList(listId) {
+    const lists = getTodoLists().filter(l => l.id !== listId);
+    saveTodoLists(lists);
+    renderTodoListsScreen();
+  }
+
+  function addTodoTask(listId, text) {
+    const lists = getTodoLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+    list.tasks.push({ id: "task_" + Date.now(), text, done: false });
+    saveTodoLists(lists);
+    renderTodoTasksScreen();
+  }
+
+  function toggleTodoTask(taskId) {
+    const lists = getTodoLists();
+    const list = lists.find(l => l.id === todoCurrentListId);
+    if (!list) return;
+    const task = list.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    task.done = !task.done;
+    saveTodoLists(lists);
+    renderTodoTasksScreen();
+  }
+
+  function deleteTodoTask(taskId) {
+    const lists = getTodoLists();
+    const list = lists.find(l => l.id === todoCurrentListId);
+    if (!list) return;
+    list.tasks = list.tasks.filter(t => t.id !== taskId);
+    saveTodoLists(lists);
+    renderTodoTasksScreen();
   }
 
   // Start
