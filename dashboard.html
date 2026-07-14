@@ -756,6 +756,172 @@
 
   .todo-task-row .tt-delete svg { width: 100%; height: 100%; }
 
+  /* --- widok witamin / kalendarza --- */
+
+  #supplements-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #10141c 0%, #1b1f2c 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 20;
+    align-items: center;
+  }
+
+  #supplements-view.open { transform: translateY(0); }
+
+  #supp-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
+  }
+
+  #supp-close {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+  }
+
+  #supp-close svg { width: 100%; height: 100%; }
+
+  #supp-header-title {
+    flex: 1;
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+    text-align: center;
+  }
+
+  #supp-month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: clamp(6px, 1.2vh, 10px);
+  }
+
+  #supp-month-nav button {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 26px;
+    height: 26px;
+  }
+
+  #supp-month-nav button svg { width: 100%; height: 100%; }
+
+  #supp-month-label {
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  #supp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: clamp(3px, 0.8vh, 6px);
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .supp-dow {
+    text-align: center;
+    font-size: clamp(9px, 1.8vh, 11px);
+    color: rgba(245,247,250,0.4);
+    text-transform: uppercase;
+    padding-bottom: 4px;
+  }
+
+  .supp-day {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(11px, 2.2vh, 13px);
+    background: rgba(255,255,255,0.04);
+    color: rgba(245,247,250,0.35);
+    position: relative;
+    border: none;
+  }
+
+  .supp-day.empty { background: none; }
+
+  .supp-day.scheduled {
+    color: #10141c;
+    font-weight: 600;
+  }
+
+  .supp-day.today { box-shadow: 0 0 0 2px #f5f7fa inset; }
+
+  .supp-day.missed { box-shadow: 0 0 0 2px rgba(224,69,63,0.6) inset; }
+
+  .supp-day .supp-check {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+  }
+
+  #supp-legend {
+    display: flex;
+    gap: clamp(10px, 2vw, 18px);
+    margin-top: clamp(10px, 2vh, 16px);
+    font-size: clamp(10px, 2vh, 12px);
+    color: rgba(245,247,250,0.55);
+  }
+
+  #supp-legend .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  #supp-streak {
+    margin-top: clamp(14px, 2.5vh, 22px);
+    font-size: clamp(14px, 2.8vh, 18px);
+    font-weight: 500;
+    text-align: center;
+  }
+
+  #supp-status {
+    font-size: 11px;
+    color: rgba(245,247,250,0.4);
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  #supp-reward {
+    margin-top: clamp(12px, 2.2vh, 18px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: min(80vw, 220px);
+  }
+
+  #supp-reward svg { width: 100%; height: auto; }
+
+  #supp-reward-caption {
+    font-size: clamp(11px, 2.2vh, 13px);
+    color: rgba(245,247,250,0.6);
+    text-align: center;
+  }
+
 </style>
 </head>
 <body>
@@ -879,6 +1045,37 @@
     </div>
   </div>
 
+  <div id="supplements-view">
+    <div id="supp-header">
+      <button id="supp-close" type="button" onclick="closeSupplementsView()" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 9 12 15 6 9"/></svg>
+      </button>
+      <div id="supp-header-title">Witaminy</div>
+      <div style="width:24px;"></div>
+    </div>
+
+    <div id="supp-month-nav">
+      <button type="button" onclick="suppChangeMonth(-1)" aria-label="Poprzedni miesiąc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="supp-month-label">-</div>
+      <button type="button" onclick="suppChangeMonth(1)" aria-label="Następny miesiąc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <div id="supp-grid"></div>
+
+    <div id="supp-legend">
+      <span><span class="dot" style="background:#a9c4d9;"></span>Żelazo</span>
+      <span><span class="dot" style="background:#e8a25f;"></span>Witamina D</span>
+    </div>
+
+    <div id="supp-streak"></div>
+    <div id="supp-status"></div>
+    <div id="supp-reward"></div>
+  </div>
+
 <script>
 
   // ==========================================================================
@@ -918,6 +1115,13 @@
       action: "todo",
       background: "linear-gradient(135deg, #7c6fd1, #5548a8)",
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="3"/></svg>`
+    },
+    {
+      id: "supplements",
+      label: "Witaminy",
+      action: "supplements",
+      background: "linear-gradient(135deg, #a9c4d9, #e8a25f)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="9" rx="4.5"/><line x1="12" y1="9" x2="12" y2="18"/><path d="M6 9V7a3 3 0 0 1 6 0v2"/></svg>`
     },
     {
       id: "home",
@@ -1155,6 +1359,7 @@
           if (tile.action === "home") closeMenu();
           if (tile.action === "spotify") { closeMenu(); openSpotifyView(); }
           if (tile.action === "todo") { closeMenu(); openTodoView(); }
+          if (tile.action === "supplements") { closeMenu(); openSupplementsView(); }
         });
       }
       el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
@@ -1187,8 +1392,9 @@
     const menuOpen = document.getElementById("menu-view").classList.contains("open");
     const spotifyOpen = document.getElementById("spotify-view").classList.contains("open");
     const todoOpen = document.getElementById("todo-view").classList.contains("open");
+    const suppOpen = document.getElementById("supplements-view").classList.contains("open");
 
-    if (!menuOpen && !spotifyOpen && !todoOpen && deltaY < -SWIPE_THRESHOLD) {
+    if (!menuOpen && !spotifyOpen && !todoOpen && !suppOpen && deltaY < -SWIPE_THRESHOLD) {
       openMenu();
     } else if (menuOpen && deltaY > SWIPE_THRESHOLD) {
       closeMenu();
@@ -1196,6 +1402,8 @@
       closeSpotifyView();
     } else if (todoOpen && deltaY > SWIPE_THRESHOLD) {
       todoGoBack();
+    } else if (suppOpen && deltaY > SWIPE_THRESHOLD) {
+      closeSupplementsView();
     }
     touchStartY = null;
   }, { passive: true });
@@ -2033,11 +2241,197 @@
     renderTodoTasksScreen();
   }
 
+  // ==========================================================================
+  // WITAMINY — kalendarz z kolorowymi dniami (zelazo: wt/czw/nd, witamina D:
+  // pt), odhaczanie dnia po wzieciu, streak i nagroda w postaci brzydkiej
+  // Chihuahuy co nieparzysty dzien passy. Zapisane w tej samej bazie
+  // Firebase co zadania — dowolne urzadzenie widzi to samo na biezaco.
+  // ==========================================================================
+
+  const SUPPLEMENT_SCHEDULE = {
+    0: { name: "Żelazo", color: "#a9c4d9" },       // niedziela
+    2: { name: "Żelazo", color: "#a9c4d9" },       // wtorek
+    4: { name: "Żelazo", color: "#a9c4d9" },       // czwartek
+    5: { name: "Witamina D", color: "#e8a25f" }    // piatek
+  };
+
+  let suppLog = {};
+  let suppViewMonth = new Date();
+  let suppSuppressSyncUntil = 0;
+
+  const CHIHUAHUA_SVG = `<svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="100" cy="150" rx="46" ry="28" fill="#c99b6b"/>
+    <rect x="64" y="163" width="9" height="24" rx="4" fill="#c99b6b"/>
+    <rect x="129" y="163" width="9" height="24" rx="4" fill="#c99b6b"/>
+    <path d="M144 138 Q172 118 158 88" stroke="#c99b6b" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M138 52 Q172 62 154 98 Q122 90 126 58 Z" fill="#c99b6b"/>
+    <ellipse cx="95" cy="92" rx="56" ry="50" fill="#d4a878"/>
+    <path d="M53 58 Q26 16 53 12 Q76 38 66 70 Z" fill="#c99b6b"/>
+    <circle cx="73" cy="88" r="19" fill="#fff"/>
+    <circle cx="68" cy="91" r="10.5" fill="#3a2a1a"/>
+    <circle cx="64" cy="87" r="3" fill="#fff"/>
+    <circle cx="121" cy="93" r="12" fill="#fff"/>
+    <circle cx="124" cy="95" r="6.5" fill="#3a2a1a"/>
+    <ellipse cx="94" cy="113" rx="9" ry="6.5" fill="#3a2a1a"/>
+    <path d="M78 123 Q95 134 112 120" stroke="#3a2a1a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M99 126 L103 137 L107 126 Z" fill="#fff"/>
+  </svg>`;
+
+  function formatDateKey(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function saveSuppLog() {
+    suppSuppressSyncUntil = Date.now() + 2500;
+    fetch(FIREBASE_DB_URL + "/supplements_log.json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(suppLog)
+    }).then(async (res) => {
+      const statusEl = document.getElementById("supp-status");
+      if (!res.ok) {
+        const body = await res.text();
+        if (statusEl) statusEl.textContent = "Błąd zapisu: HTTP " + res.status + " " + body.slice(0, 150);
+      } else if (statusEl) {
+        statusEl.textContent = "";
+      }
+    }).catch(err => {
+      console.error("Błąd zapisu witamin do Firebase:", err);
+      const statusEl = document.getElementById("supp-status");
+      if (statusEl) statusEl.textContent = "Błąd sieci przy zapisie: " + err.message;
+    });
+  }
+
+  function connectSupplementsSync() {
+    const source = new EventSource(FIREBASE_DB_URL + "/supplements_log.json");
+    source.addEventListener("put", (e) => {
+      try {
+        if (Date.now() < suppSuppressSyncUntil) return;
+        const payload = JSON.parse(e.data);
+        suppLog = payload.data || {};
+        renderSupplementsCalendar();
+      } catch (err) {
+        console.error("Błąd odczytu witamin z Firebase:", err);
+      }
+    });
+    source.onerror = () => {
+      console.warn("Połączenie z bazą witamin przerwane — przeglądarka spróbuje wznowić automatycznie.");
+    };
+  }
+
+  function openSupplementsView() {
+    suppViewMonth = new Date();
+    document.getElementById("supplements-view").classList.add("open");
+    renderSupplementsCalendar();
+  }
+
+  function closeSupplementsView() {
+    document.getElementById("supplements-view").classList.remove("open");
+  }
+
+  function suppChangeMonth(delta) {
+    suppViewMonth = new Date(suppViewMonth.getFullYear(), suppViewMonth.getMonth() + delta, 1);
+    renderSupplementsCalendar();
+  }
+
+  function suppDayClick(dateKey, isFuture) {
+    if (isFuture) return;
+    suppLog[dateKey] = !suppLog[dateKey];
+    saveSuppLog();
+    renderSupplementsCalendar();
+  }
+
+  function computeSuppStreak() {
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayKey = formatDateKey(today);
+    const d = new Date(today);
+
+    for (let i = 0; i < 365; i++) {
+      const key = formatDateKey(d);
+      const scheduled = SUPPLEMENT_SCHEDULE[d.getDay()];
+      if (scheduled) {
+        if (suppLog[key]) {
+          streak++;
+        } else if (key !== todayKey) {
+          break;
+        }
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function renderSupplementsCalendar() {
+    const label = suppViewMonth.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+    document.getElementById("supp-month-label").textContent = label;
+
+    const grid = document.getElementById("supp-grid");
+    grid.innerHTML = "";
+
+    ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie"].forEach(d => {
+      const el = document.createElement("div");
+      el.className = "supp-dow";
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const year = suppViewMonth.getFullYear();
+    const month = suppViewMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingEmpty = (firstDay.getDay() + 6) % 7; // poniedzialek = 0
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < leadingEmpty; i++) {
+      const empty = document.createElement("div");
+      empty.className = "supp-day empty";
+      grid.appendChild(empty);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const key = formatDateKey(date);
+      const scheduled = SUPPLEMENT_SCHEDULE[date.getDay()];
+      const isFuture = date > today;
+      const isToday = date.getTime() === today.getTime();
+      const taken = !!suppLog[key];
+
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "supp-day" + (scheduled ? " scheduled" : "") + (isToday ? " today" : "") +
+        (scheduled && !isFuture && !taken && !isToday ? " missed" : "");
+      cell.textContent = day;
+      if (scheduled) cell.style.background = scheduled.color;
+      if (scheduled) cell.title = scheduled.name;
+      if (taken) {
+        cell.innerHTML += `<svg class="supp-check" viewBox="0 0 24 24" fill="none" stroke="#10141c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+      }
+      cell.addEventListener("click", () => suppDayClick(key, isFuture));
+      grid.appendChild(cell);
+    }
+
+    const streak = computeSuppStreak();
+    document.getElementById("supp-streak").textContent =
+      streak > 0 ? `Passa: ${streak} ${streak === 1 ? "dzień" : "dni"} 🔥` : "Zacznij passę biorąc dzisiejszą dawkę";
+
+    const rewardEl = document.getElementById("supp-reward");
+    if (streak > 0 && streak % 2 === 1) {
+      rewardEl.innerHTML = CHIHUAHUA_SVG + `<div id="supp-reward-caption">${streak} dni z rzędu — oto brzydka Chihuahua w nagrodę</div>`;
+    } else {
+      rewardEl.innerHTML = "";
+    }
+  }
+
   // Start
   document.getElementById("spotify-redirect-debug").textContent =
     "Redirect URI używany przez tę stronę: " + SPOTIFY_CONFIG.redirectUri;
   handleSpotifyRedirect();
   connectTodoSync();
+  connectSupplementsSync();
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
