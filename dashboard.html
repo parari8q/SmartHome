@@ -767,8 +767,10 @@
     display: flex;
     flex-direction: column;
     padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    padding-bottom: clamp(30px, 5vh, 50px);
     z-index: 20;
     align-items: center;
+    overflow-y: auto;
   }
 
   #supplements-view.open { transform: translateY(0); }
@@ -1074,6 +1076,7 @@
     <div id="supp-streak"></div>
     <div id="supp-status"></div>
     <div id="supp-reward"></div>
+    <div id="supp-photos-status" style="font-size: 11px; color: rgba(245,247,250,0.35); margin-top: 8px; text-align: center;"></div>
   </div>
 
 <script>
@@ -2465,12 +2468,18 @@
 
   async function renderSuppReward(streak) {
     const rewardEl = document.getElementById("supp-reward");
+    const photosStatusEl = document.getElementById("supp-photos-status");
+
+    const photos = await fetchChihuahuaPhotoList();
+    photosStatusEl.textContent = photos.length === 0
+      ? "Zdjęcia się skończyły — dodaj nowe do folderu \"chihuahua\" w repozytorium."
+      : "";
+
     if (!(streak > 0 && streak % 2 === 1)) {
       rewardEl.innerHTML = "";
       return;
     }
     const caption = `${streak} dni z rzędu — oto brzydka Chihuahua w nagrodę`;
-    const photos = await fetchChihuahuaPhotoList();
     const photo = pickChihuahuaPhoto(photos);
     if (photo) {
       rewardEl.innerHTML =
