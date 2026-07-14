@@ -2278,7 +2278,7 @@
     try {
       const owner = window.location.hostname.split(".")[0];
       const repo = window.location.pathname.split("/")[1];
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/chihuahua`);
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/Pieski`);
       if (!res.ok) { chihuahuaPhotoListCache = []; return []; }
       const data = await res.json();
       const photos = data
@@ -2472,7 +2472,7 @@
 
     const photos = await fetchChihuahuaPhotoList();
     photosStatusEl.textContent = photos.length === 0
-      ? "Zdjęcia się skończyły — dodaj nowe do folderu \"chihuahua\" w repozytorium."
+      ? "Zdjęcia się skończyły — dodaj nowe do folderu \"Pieski\" w repozytorium."
       : "";
 
     if (!(streak > 0 && streak % 2 === 1)) {
