@@ -2384,6 +2384,7 @@
     suppLog = {};
     saveSuppLog();
     localStorage.removeItem("chihuahua_shown");
+    localStorage.removeItem("chihuahua_reward_choice");
     renderSupplementsCalendar();
   }
 
@@ -2488,7 +2489,18 @@
       return;
     }
     const caption = `${streak} dni z rzędu — oto brzydka Chihuahua w nagrodę`;
-    const photo = pickChihuahuaPhoto(photos);
+    const todayKey = formatDateKey(new Date());
+    let choice = null;
+    try { choice = JSON.parse(localStorage.getItem("chihuahua_reward_choice") || "null"); } catch {}
+
+    let photo;
+    if (choice && choice.date === todayKey && photos.includes(choice.photo)) {
+      photo = choice.photo;
+    } else {
+      photo = pickChihuahuaPhoto(photos);
+      if (photo) localStorage.setItem("chihuahua_reward_choice", JSON.stringify({ date: todayKey, photo }));
+    }
+
     if (photo) {
       rewardEl.innerHTML =
         `<img src="${photo}" alt="Chihuahua" style="width:100%; border-radius:16px; object-fit:cover;" onerror="this.outerHTML = CHIHUAHUA_SVG;">` +
