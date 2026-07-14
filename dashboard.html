@@ -1075,6 +1075,7 @@
 
     <div id="supp-streak"></div>
     <div id="supp-status"></div>
+    <button type="button" onclick="resetSupplementsProgress()" style="background:none; border:none; color: rgba(245,247,250,0.3); font-size: 11px; font-family: 'Inter', sans-serif; text-decoration: underline; margin-top: 4px;">Resetuj passę</button>
     <div id="supp-reward"></div>
     <div id="supp-photos-status" style="font-size: 11px; color: rgba(245,247,250,0.35); margin-top: 8px; text-align: center;"></div>
   </div>
@@ -2376,6 +2377,13 @@
 
   function suppChangeMonth(delta) {
     suppViewMonth = new Date(suppViewMonth.getFullYear(), suppViewMonth.getMonth() + delta, 1);
+    renderSupplementsCalendar();
+  }
+
+  function resetSupplementsProgress() {
+    suppLog = {};
+    saveSuppLog();
+    localStorage.removeItem("chihuahua_shown");
     renderSupplementsCalendar();
   }
 
