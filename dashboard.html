@@ -2259,6 +2259,48 @@
   let suppViewMonth = new Date();
   let suppSuppressSyncUntil = 0;
 
+  // ==========================================================================
+  // WLASNE ZDJECIA CHIHUAHUY — wrzuc dowolne zdjecia (dowolne nazwy) do
+  // folderu "chihuahua" w tym samym repozytorium na GitHubie. Kod sam
+  // wykryje ich liste przez API GitHuba, bez wpisywania nazw plikow.
+  // Pokazane juz zdjecia sa zapamietywane, zeby nie powtarzaly sie zanim
+  // przejdzie przez wszystkie — potem cykl zaczyna sie od nowa.
+  // Jesli folder jest pusty/nie istnieje, uzywany jest rysunek zastepczy.
+  // ==========================================================================
+
+  let chihuahuaPhotoListCache = null;
+
+  async function fetchChihuahuaPhotoList() {
+    if (chihuahuaPhotoListCache) return chihuahuaPhotoListCache;
+    try {
+      const owner = window.location.hostname.split(".")[0];
+      const repo = window.location.pathname.split("/")[1];
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/chihuahua`);
+      if (!res.ok) { chihuahuaPhotoListCache = []; return []; }
+      const data = await res.json();
+      const photos = data
+        .filter(f => f.type === "file" && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
+        .map(f => f.download_url);
+      chihuahuaPhotoListCache = photos;
+      return photos;
+    } catch (err) {
+      console.error("Nie udało się pobrać listy zdjęć Chihuahuy:", err);
+      return [];
+    }
+  }
+
+  function pickChihuahuaPhoto(photos) {
+    if (photos.length === 0) return null;
+    let shown = [];
+    try { shown = JSON.parse(localStorage.getItem("chihuahua_shown") || "[]"); } catch {}
+    let available = photos.filter(p => !shown.includes(p));
+    if (available.length === 0) { shown = []; available = photos; }
+    const pick = available[Math.floor(Math.random() * available.length)];
+    shown.push(pick);
+    localStorage.setItem("chihuahua_shown", JSON.stringify(shown));
+    return pick;
+  }
+
   const CHIHUAHUA_SVG = `<svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="100" cy="150" rx="46" ry="28" fill="#c99b6b"/>
     <rect x="64" y="163" width="9" height="24" rx="4" fill="#c99b6b"/>
@@ -2418,11 +2460,24 @@
     document.getElementById("supp-streak").textContent =
       streak > 0 ? `Passa: ${streak} ${streak === 1 ? "dzień" : "dni"} 🔥` : "Zacznij passę biorąc dzisiejszą dawkę";
 
+    renderSuppReward(streak);
+  }
+
+  async function renderSuppReward(streak) {
     const rewardEl = document.getElementById("supp-reward");
-    if (streak > 0 && streak % 2 === 1) {
-      rewardEl.innerHTML = CHIHUAHUA_SVG + `<div id="supp-reward-caption">${streak} dni z rzędu — oto brzydka Chihuahua w nagrodę</div>`;
-    } else {
+    if (!(streak > 0 && streak % 2 === 1)) {
       rewardEl.innerHTML = "";
+      return;
+    }
+    const caption = `${streak} dni z rzędu — oto brzydka Chihuahua w nagrodę`;
+    const photos = await fetchChihuahuaPhotoList();
+    const photo = pickChihuahuaPhoto(photos);
+    if (photo) {
+      rewardEl.innerHTML =
+        `<img src="${photo}" alt="Chihuahua" style="width:100%; border-radius:16px; object-fit:cover;" onerror="this.outerHTML = CHIHUAHUA_SVG;">` +
+        `<div id="supp-reward-caption">${caption}</div>`;
+    } else {
+      rewardEl.innerHTML = CHIHUAHUA_SVG + `<div id="supp-reward-caption">${caption}</div>`;
     }
   }
 
