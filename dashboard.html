@@ -1001,6 +1001,21 @@
       </button>
     </div>
 
+    <button id="voice-test-btn" type="button" onclick="startVoiceTest()" aria-label="Test mikrofonu"
+      style="position: fixed; bottom: clamp(14px, 2.5vh, 24px); left: clamp(14px, 2.5vw, 24px); z-index: 30;
+      width: clamp(38px, 7vh, 48px); height: clamp(38px, 7vh, 48px); border-radius: 50%;
+      background: rgba(255,255,255,0.1); border: none; color: rgba(245,247,250,0.7);
+      display: flex; align-items: center; justify-content: center;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:55%; height:55%;">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+      </svg>
+    </button>
+    <div id="voice-test-result" style="position: fixed; bottom: clamp(60px, 11vh, 78px); left: clamp(14px, 2.5vw, 24px);
+      z-index: 30; max-width: 60vw; font-size: 12px; color: rgba(245,247,250,0.7); background: rgba(0,0,0,0.4);
+      padding: 6px 10px; border-radius: 8px; display: none;"></div>
+
   </div>
 
   <div id="menu-view">
@@ -2613,6 +2628,50 @@
         `<div id="supp-reward-caption">${caption}</div>`;
     } else {
       rewardEl.innerHTML = CHIHUAHUA_SVG + `<div id="supp-reward-caption">${caption}</div>`;
+    }
+  }
+
+  // ==========================================================================
+  // TEST GLOSOWY — sprawdzamy czy rozpoznawanie mowy w ogole dziala w tej
+  // przegladarce/na tym urzadzeniu, zanim zbudujemy pelna funkcje dodawania
+  // zadan glosem.
+  // ==========================================================================
+
+  function startVoiceTest() {
+    const resultEl = document.getElementById("voice-test-result");
+    resultEl.style.display = "block";
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      resultEl.textContent = "Rozpoznawanie mowy niedostępne w tej przeglądarce.";
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "pl-PL";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    resultEl.textContent = "Słucham…";
+
+    recognition.onresult = (e) => {
+      let transcript = "";
+      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+      resultEl.textContent = transcript || "…";
+    };
+
+    recognition.onerror = (e) => {
+      resultEl.textContent = "Błąd: " + e.error;
+    };
+
+    recognition.onend = () => {
+      if (resultEl.textContent === "Słucham…") resultEl.textContent = "Nic nie usłyszano.";
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      resultEl.textContent = "Błąd startu: " + err.message;
     }
   }
 
