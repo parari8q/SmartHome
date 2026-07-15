@@ -675,6 +675,7 @@
     padding: 12px 14px;
     color: #f5f7fa;
     text-align: left;
+    cursor: pointer;
   }
 
   .todo-list-row:active { background: rgba(255,255,255,0.09); }
@@ -2169,8 +2170,7 @@
 
     lists.forEach(list => {
       const openCount = (list.tasks || []).filter(t => !t.done).length;
-      const row = document.createElement("button");
-      row.type = "button";
+      const row = document.createElement("div");
       row.className = "todo-list-row";
       row.innerHTML = `
         <span class="tl-name">${list.name}</span>
