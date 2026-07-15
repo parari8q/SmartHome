@@ -1001,7 +1001,7 @@
       </button>
     </div>
 
-    <button id="voice-test-btn" type="button" onclick="startVoiceTest()" aria-label="Test mikrofonu"
+    <button id="voice-test-btn" type="button" onclick="startVoiceTest()" aria-label="Polecenie głosowe"
       style="position: fixed; bottom: clamp(14px, 2.5vh, 24px); left: clamp(14px, 2.5vw, 24px); z-index: 30;
       width: clamp(38px, 7vh, 48px); height: clamp(38px, 7vh, 48px); border-radius: 50%;
       background: rgba(255,255,255,0.1); border: none; color: rgba(245,247,250,0.7);
@@ -2632,14 +2632,17 @@
   }
 
   // ==========================================================================
-  // TEST GLOSOWY — sprawdzamy czy rozpoznawanie mowy w ogole dziala w tej
-  // przegladarce/na tym urzadzeniu, zanim zbudujemy pelna funkcje dodawania
-  // zadan glosem.
+  // POLECENIA GLOSOWE — mikrofon na ekranie glownym. Rozumie zdania typu:
+  // "dodaj umyc podloge w kategorii dom" / "dodaj do listy zadan X do kategorii Y".
+  // Jesli kategoria juz istnieje, dokleja zadanie do niej; jesli nie, tworzy nowa.
   // ==========================================================================
+
+  let voiceFinalTranscript = "";
 
   function startVoiceTest() {
     const resultEl = document.getElementById("voice-test-result");
     resultEl.style.display = "block";
+    voiceFinalTranscript = "";
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
@@ -2656,7 +2659,10 @@
 
     recognition.onresult = (e) => {
       let transcript = "";
-      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+        if (e.results[i].isFinal) voiceFinalTranscript = transcript;
+      }
       resultEl.textContent = transcript || "…";
     };
 
@@ -2665,7 +2671,11 @@
     };
 
     recognition.onend = () => {
-      if (resultEl.textContent === "Słucham…") resultEl.textContent = "Nic nie usłyszano.";
+      if (voiceFinalTranscript) {
+        processVoiceCommand(voiceFinalTranscript);
+      } else if (resultEl.textContent === "Słucham…") {
+        resultEl.textContent = "Nic nie usłyszano.";
+      }
     };
 
     try {
@@ -2673,6 +2683,35 @@
     } catch (err) {
       resultEl.textContent = "Błąd startu: " + err.message;
     }
+  }
+
+  function processVoiceCommand(text) {
+    const resultEl = document.getElementById("voice-test-result");
+    const match = text.match(/(?:dodaj|wpisz|zapisz)\s+(?:do\s+listy\s+zada[nń]\s+)?(?:zadanie\s+)?(.+?)\s+(?:w|do)\s+kategorii\s+(.+)/i);
+
+    if (!match) {
+      resultEl.textContent = `Nie rozpoznano polecenia: "${text}"`;
+      return;
+    }
+
+    const taskText = match[1].trim().replace(/[.,]+$/, "");
+    const categoryName = match[2].trim().replace(/[.,]+$/, "");
+
+    if (!taskText || !categoryName) {
+      resultEl.textContent = `Nie udało się rozpoznać zadania/kategorii z: "${text}"`;
+      return;
+    }
+
+    const lists = getTodoLists();
+    let list = lists.find(l => l.name.toLowerCase() === categoryName.toLowerCase());
+    if (!list) {
+      list = { id: "list_" + Date.now(), name: categoryName, tasks: [] };
+      lists.push(list);
+    }
+    (list.tasks = list.tasks || []).push({ id: "task_" + Date.now(), text: taskText, done: false });
+    saveTodoLists(lists);
+
+    resultEl.textContent = `Dodano „${taskText}" do kategorii „${categoryName}"`;
   }
 
   // Start
