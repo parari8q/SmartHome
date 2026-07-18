@@ -1675,6 +1675,22 @@
     if (document.visibilityState === "visible") keepScreenAwake();
   });
 
+  // Zapasowe wymuszenie pelnego ekranu (chowa pasek statusu Androida), na
+  // wypadek gdyby telefon nie uszanowal samego trybu "fullscreen" z manifestu.
+  // Fullscreen API wymaga gestu uzytkownika, wiec probujemy przy pierwszym dotknieciu.
+  function requestFullscreenOnce() {
+    document.removeEventListener("touchstart", requestFullscreenOnce);
+    document.removeEventListener("click", requestFullscreenOnce);
+    if (document.fullscreenElement) return;
+    const el = document.documentElement;
+    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (request) {
+      request.call(el).catch(err => console.warn("Nie udało się wejść w pełny ekran:", err));
+    }
+  }
+  document.addEventListener("touchstart", requestFullscreenOnce);
+  document.addEventListener("click", requestFullscreenOnce);
+
   function renderMenu() {
     const grid = document.getElementById("tile-grid");
     grid.innerHTML = "";
