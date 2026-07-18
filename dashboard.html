@@ -959,6 +959,237 @@
     text-align: center;
   }
 
+  /* --- powiadomienie o leku na ekranie pogody --- */
+
+  #home-supp-banner {
+    display: none;
+    position: fixed;
+    top: clamp(14px, 2.5vh, 24px);
+    right: clamp(14px, 2.5vw, 24px);
+    z-index: 5;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px 8px 10px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(11px, 2.2vh, 13px);
+  }
+
+  #home-supp-banner .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+
+  /* --- widok kalendarza wydarzen --- */
+
+  #calendar-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #1a1408 0%, #241c0f 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    padding-bottom: clamp(30px, 5vh, 50px);
+    z-index: 20;
+    align-items: center;
+    overflow-y: auto;
+  }
+
+  #calendar-view.open { transform: translateY(0); }
+
+  #cal-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
+  }
+
+  #cal-back {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+  }
+
+  #cal-back svg { width: 100%; height: 100%; }
+
+  #cal-header-title {
+    flex: 1;
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #cal-month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: clamp(6px, 1.2vh, 10px);
+  }
+
+  #cal-month-nav button {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 26px;
+    height: 26px;
+  }
+
+  #cal-month-nav button svg { width: 100%; height: 100%; }
+
+  #cal-month-label {
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  #cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: clamp(3px, 0.8vh, 6px);
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .cal-dow {
+    text-align: center;
+    font-size: clamp(9px, 1.8vh, 11px);
+    color: rgba(245,247,250,0.4);
+    text-transform: uppercase;
+    padding-bottom: 4px;
+  }
+
+  .cal-day {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(11px, 2.2vh, 13px);
+    background: rgba(255,255,255,0.05);
+    color: rgba(245,247,250,0.7);
+    position: relative;
+    border: none;
+  }
+
+  .cal-day.empty { background: none; }
+  .cal-day.today { box-shadow: 0 0 0 2px #f5f7fa inset; }
+
+  .cal-day .cal-dot {
+    position: absolute;
+    bottom: 4px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #e0a23f;
+  }
+
+  #cal-day-content {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cal-event-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .cal-event-row .ce-time {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(12px, 2.4vh, 14px);
+    color: #e0a23f;
+    flex: 0 0 auto;
+    min-width: 42px;
+  }
+
+  .cal-event-row .ce-title {
+    flex: 1;
+    font-size: clamp(13px, 2.6vh, 16px);
+    word-break: break-word;
+  }
+
+  .cal-event-row .ce-edit, .cal-event-row .ce-delete {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.3);
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
+
+  .cal-event-row .ce-edit svg, .cal-event-row .ce-delete svg { width: 100%; height: 100%; }
+
+  #cal-input-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: clamp(10px, 2vh, 16px);
+    width: 100%;
+    max-width: 420px;
+  }
+
+  #cal-input-bar input[type="time"] {
+    flex: 0 0 auto;
+    width: 90px;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 12px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 2.2vh, 14px);
+  }
+
+  #cal-input-bar input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  #cal-input-bar input::placeholder { color: rgba(245,247,250,0.4); }
+
+  #cal-input-bar button {
+    background: #e0a23f;
+    color: #1a1408;
+    border: none;
+    border-radius: 999px;
+    padding: 0 18px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 2.4vh, 15px);
+    flex: 0 0 auto;
+  }
+
 </style>
 </head>
 <body>
@@ -994,6 +1225,11 @@
 
     <div id="hourly"></div>
     <div id="footer">Aktualizacja: <span id="last-updated">--</span></div>
+
+    <button id="home-supp-banner" type="button" onclick="closeMenu(); openSupplementsView();">
+      <span class="dot" id="home-supp-dot"></span>
+      <span id="home-supp-text"></span>
+    </button>
 
     <div id="swipe-hint">
       <button type="button" onclick="openMenu()" aria-label="Otwórz menu">
@@ -1130,6 +1366,36 @@
     <div id="supp-photos-status" style="font-size: 11px; color: rgba(245,247,250,0.35); margin-top: 8px; text-align: center;"></div>
   </div>
 
+  <div id="calendar-view">
+    <div id="cal-header">
+      <button id="cal-back" type="button" onclick="calGoBack()" aria-label="Wróć">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="cal-header-title">Kalendarz</div>
+      <div style="width:24px;"></div>
+    </div>
+
+    <div id="cal-month-nav">
+      <button type="button" onclick="calChangeMonth(-1)" aria-label="Poprzedni miesiąc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="cal-month-label">-</div>
+      <button type="button" onclick="calChangeMonth(1)" aria-label="Następny miesiąc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <div id="cal-grid"></div>
+    <div id="cal-day-content"></div>
+
+    <div id="cal-input-bar">
+      <input id="cal-time-input" type="time">
+      <input id="cal-title-input" type="text" placeholder="Co się dzieje…" onkeydown="if(event.key==='Enter') calSubmitEvent()">
+      <button type="button" onclick="calSubmitEvent()">Dodaj</button>
+    </div>
+    <div id="cal-status" style="font-size: 11px; color: rgba(245,247,250,0.4); padding: 6px 4px 0; width:100%; max-width:420px; text-align:center;"></div>
+  </div>
+
 <script>
 
   // ==========================================================================
@@ -1176,6 +1442,13 @@
       action: "supplements",
       background: "linear-gradient(135deg, #a9c4d9, #e8a25f)",
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="9" rx="4.5"/><line x1="12" y1="9" x2="12" y2="18"/><path d="M6 9V7a3 3 0 0 1 6 0v2"/></svg>`
+    },
+    {
+      id: "calendar",
+      label: "Kalendarz",
+      action: "calendar",
+      background: "linear-gradient(135deg, #e0a23f, #b8762c)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>`
     },
     {
       id: "home",
@@ -1414,6 +1687,7 @@
           if (tile.action === "spotify") { closeMenu(); openSpotifyView(); }
           if (tile.action === "todo") { closeMenu(); openTodoView(); }
           if (tile.action === "supplements") { closeMenu(); openSupplementsView(); }
+          if (tile.action === "calendar") { closeMenu(); openCalendarView(); }
         });
       }
       el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
@@ -1447,8 +1721,9 @@
     const spotifyOpen = document.getElementById("spotify-view").classList.contains("open");
     const todoOpen = document.getElementById("todo-view").classList.contains("open");
     const suppOpen = document.getElementById("supplements-view").classList.contains("open");
+    const calOpen = document.getElementById("calendar-view").classList.contains("open");
 
-    if (!menuOpen && !spotifyOpen && !todoOpen && !suppOpen && deltaY < -SWIPE_THRESHOLD) {
+    if (!menuOpen && !spotifyOpen && !todoOpen && !suppOpen && !calOpen && deltaY < -SWIPE_THRESHOLD) {
       openMenu();
     } else if (menuOpen && deltaY > SWIPE_THRESHOLD) {
       closeMenu();
@@ -1458,6 +1733,8 @@
       todoGoBack();
     } else if (suppOpen && deltaY > SWIPE_THRESHOLD) {
       closeSupplementsView();
+    } else if (calOpen && deltaY > SWIPE_THRESHOLD) {
+      calGoBack();
     }
     touchStartY = null;
   }, { passive: true });
@@ -2594,6 +2871,22 @@
       streak > 0 ? `Passa: ${streak} ${streak === 1 ? "dzień" : "dni"} 🔥` : "Zacznij passę biorąc dzisiejszą dawkę";
 
     renderSuppReward(streak);
+    updateHomeSupplementBanner();
+  }
+
+  function updateHomeSupplementBanner() {
+    const banner = document.getElementById("home-supp-banner");
+    const today = new Date();
+    const scheduled = SUPPLEMENT_SCHEDULE[today.getDay()];
+    const key = formatDateKey(today);
+
+    if (scheduled && !suppLog[key]) {
+      document.getElementById("home-supp-dot").style.background = scheduled.color;
+      document.getElementById("home-supp-text").textContent = "Dziś: " + scheduled.name;
+      banner.style.display = "flex";
+    } else {
+      banner.style.display = "none";
+    }
   }
 
   async function renderSuppReward(streak) {
@@ -2685,8 +2978,137 @@
     }
   }
 
+  // ==========================================================================
+  // ROZPOZNAWANIE DATY/GODZINY W MOWIE — dla poleceń dodajacych wydarzenie
+  // do kalendarza. Rozumie kilka roznych sposobow mowienia o tym samym dniu
+  // i godzinie, nie tylko jeden sztywny wzorzec zdania.
+  // ==========================================================================
+
+  const WEEKDAYS_PL = ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"];
+  const MONTHS_PL = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"];
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+  function parseDateFromText(text) {
+    const lower = text.toLowerCase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let m = lower.match(/\b(dzisiaj|dziś)\b/);
+    if (m) return { date: new Date(today), matched: m[0] };
+
+    m = lower.match(/\bjutro\b/);
+    if (m) { const d = new Date(today); d.setDate(d.getDate() + 1); return { date: d, matched: m[0] }; }
+
+    m = lower.match(/\bpojutrze\b/);
+    if (m) { const d = new Date(today); d.setDate(d.getDate() + 2); return { date: d, matched: m[0] }; }
+
+    m = lower.match(/za\s+tydzień/);
+    if (m) { const d = new Date(today); d.setDate(d.getDate() + 7); return { date: d, matched: m[0] }; }
+
+    m = lower.match(/za\s+(\d+)\s+dni/);
+    if (m) { const d = new Date(today); d.setDate(d.getDate() + parseInt(m[1], 10)); return { date: d, matched: m[0] }; }
+
+    for (let mi = 0; mi < MONTHS_PL.length; mi++) {
+      const re = new RegExp("\\b(\\d{1,2})\\s+" + MONTHS_PL[mi] + "\\b");
+      const mm = lower.match(re);
+      if (mm) {
+        const day = parseInt(mm[1], 10);
+        let d = new Date(today.getFullYear(), mi, day);
+        if (d < today) d = new Date(today.getFullYear() + 1, mi, day);
+        return { date: d, matched: mm[0] };
+      }
+    }
+
+    m = lower.match(/\b(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?\b/);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      let year = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : today.getFullYear();
+      let d = new Date(year, month, day);
+      if (!m[3] && d < today) d = new Date(year + 1, month, day);
+      return { date: d, matched: m[0] };
+    }
+
+    for (let wi = 0; wi < WEEKDAYS_PL.length; wi++) {
+      const forms = [WEEKDAYS_PL[wi]];
+      if (WEEKDAYS_PL[wi] === "środa") forms.push("środę");
+      if (WEEKDAYS_PL[wi] === "sobota") forms.push("sobotę");
+      if (WEEKDAYS_PL[wi] === "niedziela") forms.push("niedzielę");
+      for (const form of forms) {
+        const re = new RegExp("\\b(?:w\\s+najbli(?:ż|z)szy[ąm]?\\s+|we?\\s+)?" + form + "\\b");
+        const mm = lower.match(re);
+        if (mm) {
+          let diff = (wi - today.getDay() + 7) % 7;
+          const d = new Date(today);
+          d.setDate(d.getDate() + diff);
+          return { date: d, matched: mm[0] };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function parseTimeFromText(text) {
+    const lower = text.toLowerCase();
+
+    let m = lower.match(/o\s+godzinie\s+(\d{1,2})(?:[:.,](\d{2}))?/);
+    if (m) return { time: pad2(m[1]) + ":" + (m[2] ? pad2(m[2]) : "00"), matched: m[0] };
+
+    m = lower.match(/\bo\s+(\d{1,2})[:.,](\d{2})/);
+    if (m) return { time: pad2(m[1]) + ":" + pad2(m[2]), matched: m[0] };
+
+    m = lower.match(/\bo\s+(\d{1,2})\b/);
+    if (m) return { time: pad2(m[1]) + ":00", matched: m[0] };
+
+    return null;
+  }
+
+  function parseCalendarVoiceCommand(text) {
+    const dateResult = parseDateFromText(text);
+    if (!dateResult) return null; // brak rozpoznanej daty = to nie jest polecenie do kalendarza
+
+    let working = text.replace(new RegExp(escapeRegex(dateResult.matched), "i"), " ");
+
+    const timeResult = parseTimeFromText(working);
+    if (timeResult) {
+      working = working.replace(new RegExp(escapeRegex(timeResult.matched), "i"), " ");
+    }
+
+    working = working.replace(/\b(dodaj|wpisz|zapisz|stwórz|stworz|utwórz|utworz|ustaw|umów|umow|zaplanuj)\b/gi, " ");
+    working = working.replace(/\b(wydarzenie|spotkanie|przypomnienie)\b/gi, " ");
+    working = working.replace(/\b(do\s+kalendarza|w\s+kalendarzu|kalendarz)\b/gi, " ");
+    working = working.replace(/\s+/g, " ").trim();
+    working = working.replace(/^(na|w|we|dnia|,)\s+/i, "").trim();
+    working = working.replace(/[.,]+$/, "").trim();
+
+    if (!working) return null;
+
+    const title = working.charAt(0).toUpperCase() + working.slice(1);
+    return { date: dateResult.date, time: timeResult ? timeResult.time : "", title };
+  }
+
   function processVoiceCommand(text) {
     const resultEl = document.getElementById("voice-test-result");
+
+    // Najpierw sprawdzamy czy to polecenie kalendarzowe (zawiera rozpoznawalna date) —
+    // jesli nie znajdziemy zadnej daty, zakladamy ze to polecenie dodania zadania.
+    const calResult = parseCalendarVoiceCommand(text);
+    if (calResult) {
+      const key = formatDateKey(calResult.date);
+      const events = getCalEvents();
+      const list = events[key] || [];
+      list.push({ id: "ev_" + Date.now(), time: calResult.time, title: calResult.title });
+      events[key] = list;
+      saveCalEvents(events);
+
+      const dateLabel = calResult.date.toLocaleDateString("pl-PL", { day: "numeric", month: "long" });
+      resultEl.textContent = `Dodano do kalendarza: „${calResult.title}" — ${dateLabel}${calResult.time ? " o " + calResult.time : ""}`;
+      return;
+    }
+
     const match = text.match(/(?:dodaj|wpisz|zapisz)\s+(?:do\s+listy\s+zada[nń]\s+)?(?:zadanie\s+)?(.+?)\s+(?:w|do)\s+kategorii\s+(.+)/i);
 
     if (!match) {
@@ -2714,12 +3136,270 @@
     resultEl.textContent = `Dodano „${taskText}" do kategorii „${categoryName}"`;
   }
 
+  // ==========================================================================
+  // KALENDARZ WYDARZEN — miesieczny widok, tapniecie w dzien pokazuje liste
+  // wydarzen z godzina (albo sama date, jesli nic nie ma). Zapisane w tej
+  // samej bazie Firebase co reszta, wiec synchronizuje sie na wszystkich
+  // urzadzeniach na biezaco.
+  // ==========================================================================
+
+  let calEvents = {};           // { "YYYY-MM-DD": [ {id, time, title}, ... ] }
+  let calViewMonth = new Date();
+  let calCurrentDayKey = null;  // null = jestesmy na ekranie miesiaca
+  let calSuppressSyncUntil = 0;
+
+  function getCalEvents() {
+    return calEvents;
+  }
+
+  function saveCalEvents(events) {
+    calEvents = events;
+    calSuppressSyncUntil = Date.now() + 2500;
+    fetch(FIREBASE_DB_URL + "/calendar_events.json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(events)
+    }).then(async (res) => {
+      const statusEl = document.getElementById("cal-status");
+      if (!res.ok) {
+        const body = await res.text();
+        if (statusEl) statusEl.textContent = "Błąd zapisu: HTTP " + res.status + " " + body.slice(0, 150);
+      } else if (statusEl) {
+        statusEl.textContent = "";
+      }
+    }).catch(err => {
+      console.error("Błąd zapisu kalendarza do Firebase:", err);
+      const statusEl = document.getElementById("cal-status");
+      if (statusEl) statusEl.textContent = "Błąd sieci przy zapisie: " + err.message;
+    });
+  }
+
+  function connectCalendarSync() {
+    const source = new EventSource(FIREBASE_DB_URL + "/calendar_events.json");
+    source.addEventListener("put", (e) => {
+      try {
+        if (Date.now() < calSuppressSyncUntil) return;
+        const payload = JSON.parse(e.data);
+        calEvents = payload.data || {};
+        renderCalendarScreen();
+      } catch (err) {
+        console.error("Błąd odczytu kalendarza z Firebase:", err);
+      }
+    });
+    source.onerror = () => {
+      console.warn("Połączenie z bazą kalendarza przerwane — przeglądarka spróbuje wznowić automatycznie.");
+    };
+  }
+
+  function openCalendarView() {
+    calViewMonth = new Date();
+    calCurrentDayKey = null;
+    document.getElementById("calendar-view").classList.add("open");
+    renderCalendarScreen();
+  }
+
+  function closeCalendarView() {
+    document.getElementById("calendar-view").classList.remove("open");
+  }
+
+  function calGoBack() {
+    if (calCurrentDayKey !== null) {
+      calCurrentDayKey = null;
+      renderCalendarScreen();
+    } else {
+      closeCalendarView();
+    }
+  }
+
+  function calChangeMonth(delta) {
+    calViewMonth = new Date(calViewMonth.getFullYear(), calViewMonth.getMonth() + delta, 1);
+    renderCalendarScreen();
+  }
+
+  function calFormatDayLabel(dateKey) {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function renderCalendarScreen() {
+    if (calCurrentDayKey === null) {
+      document.getElementById("cal-month-nav").style.display = "flex";
+      document.getElementById("cal-grid").style.display = "grid";
+      document.getElementById("cal-day-content").style.display = "none";
+      document.getElementById("cal-input-bar").style.display = "none";
+      renderCalendarMonthScreen();
+    } else {
+      document.getElementById("cal-month-nav").style.display = "none";
+      document.getElementById("cal-grid").style.display = "none";
+      document.getElementById("cal-day-content").style.display = "flex";
+      document.getElementById("cal-input-bar").style.display = "flex";
+      renderCalendarDayScreen();
+    }
+  }
+
+  function renderCalendarMonthScreen() {
+    document.getElementById("cal-header-title").textContent = "Kalendarz";
+
+    const label = calViewMonth.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+    document.getElementById("cal-month-label").textContent = label;
+
+    const grid = document.getElementById("cal-grid");
+    grid.innerHTML = "";
+
+    ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie"].forEach(d => {
+      const el = document.createElement("div");
+      el.className = "cal-dow";
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const year = calViewMonth.getFullYear();
+    const month = calViewMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingEmpty = (firstDay.getDay() + 6) % 7;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < leadingEmpty; i++) {
+      const empty = document.createElement("div");
+      empty.className = "cal-day empty";
+      grid.appendChild(empty);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const key = formatDateKey(date);
+      const isToday = date.getTime() === today.getTime();
+      const hasEvents = calEvents[key] && calEvents[key].length > 0;
+
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cal-day" + (isToday ? " today" : "");
+      cell.textContent = day;
+      if (hasEvents) cell.innerHTML += `<span class="cal-dot"></span>`;
+      cell.addEventListener("click", () => {
+        calCurrentDayKey = key;
+        renderCalendarScreen();
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  function renderCalendarDayScreen() {
+    const key = calCurrentDayKey;
+    document.getElementById("cal-header-title").textContent = calFormatDayLabel(key);
+
+    const content = document.getElementById("cal-day-content");
+    content.innerHTML = "";
+
+    const events = (calEvents[key] || []).slice().sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+
+    if (events.length === 0) {
+      content.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Nic zaplanowanego tego dnia.</div>`;
+      return;
+    }
+
+    events.forEach(ev => {
+      const row = document.createElement("div");
+      row.className = "cal-event-row";
+      row.innerHTML = `
+        <div class="ce-time">${ev.time || ""}</div>
+        <div class="ce-title">${ev.title}</div>
+        <button class="ce-edit" type="button" aria-label="Edytuj">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="ce-delete" type="button" aria-label="Usuń">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      `;
+      row.querySelector(".ce-delete").addEventListener("click", () => calDeleteEvent(ev.id));
+      row.querySelector(".ce-edit").addEventListener("click", () => calStartEditEvent(ev.id, row));
+      content.appendChild(row);
+    });
+  }
+
+  function calSubmitEvent() {
+    const title = document.getElementById("cal-title-input").value.trim();
+    const time = document.getElementById("cal-time-input").value;
+    if (!title || calCurrentDayKey === null) return;
+
+    const events = getCalEvents();
+    const list = events[calCurrentDayKey] || [];
+    list.push({ id: "ev_" + Date.now(), time, title });
+    events[calCurrentDayKey] = list;
+    saveCalEvents(events);
+
+    document.getElementById("cal-title-input").value = "";
+    document.getElementById("cal-time-input").value = "";
+    renderCalendarDayScreen();
+  }
+
+  function calDeleteEvent(eventId) {
+    const events = getCalEvents();
+    const list = events[calCurrentDayKey] || [];
+    events[calCurrentDayKey] = list.filter(ev => ev.id !== eventId);
+    if (events[calCurrentDayKey].length === 0) delete events[calCurrentDayKey];
+    saveCalEvents(events);
+    renderCalendarDayScreen();
+  }
+
+  function calStartEditEvent(eventId, row) {
+    const events = getCalEvents();
+    const list = events[calCurrentDayKey] || [];
+    const ev = list.find(e => e.id === eventId);
+    if (!ev) return;
+
+    const timeEl = row.querySelector(".ce-time");
+    const titleEl = row.querySelector(".ce-title");
+
+    const timeInput = document.createElement("input");
+    timeInput.type = "time";
+    timeInput.value = ev.time || "";
+    timeInput.className = "todo-edit-input";
+    timeInput.style.width = "90px";
+    timeInput.style.flex = "0 0 auto";
+
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = ev.title;
+    titleInput.className = "todo-edit-input";
+
+    const save = () => calSaveEventEdit(eventId, timeInput.value, titleInput.value);
+    [timeInput, titleInput].forEach(inp => {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") save();
+        if (e.key === "Escape") renderCalendarDayScreen();
+      });
+      inp.addEventListener("blur", () => setTimeout(save, 150));
+    });
+
+    timeEl.replaceWith(timeInput);
+    titleEl.replaceWith(titleInput);
+    titleInput.focus();
+    titleInput.select();
+  }
+
+  function calSaveEventEdit(eventId, newTime, newTitle) {
+    newTitle = newTitle.trim();
+    if (!newTitle) { renderCalendarDayScreen(); return; }
+    const events = getCalEvents();
+    const list = events[calCurrentDayKey] || [];
+    const ev = list.find(e => e.id === eventId);
+    if (ev) { ev.time = newTime; ev.title = newTitle; }
+    saveCalEvents(events);
+    renderCalendarDayScreen();
+  }
+
   // Start
   document.getElementById("spotify-redirect-debug").textContent =
     "Redirect URI używany przez tę stronę: " + SPOTIFY_CONFIG.redirectUri;
   handleSpotifyRedirect();
   connectTodoSync();
   connectSupplementsSync();
+  connectCalendarSync();
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
