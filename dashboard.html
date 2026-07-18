@@ -1691,6 +1691,10 @@
   document.addEventListener("touchstart", requestFullscreenOnce);
   document.addEventListener("click", requestFullscreenOnce);
 
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(err => console.warn("Rejestracja Service Workera nieudana:", err));
+  }
+
   function renderMenu() {
     const grid = document.getElementById("tile-grid");
     grid.innerHTML = "";
