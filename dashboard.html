@@ -1254,7 +1254,13 @@
     </button>
     <div id="voice-test-result" style="position: fixed; bottom: clamp(60px, 11vh, 78px); left: clamp(14px, 2.5vw, 24px);
       z-index: 30; max-width: 60vw; font-size: 12px; color: rgba(245,247,250,0.7); background: rgba(0,0,0,0.4);
-      padding: 6px 10px; border-radius: 8px; display: none;"></div>
+      padding: 6px 26px 6px 10px; border-radius: 8px; display: none; position: fixed;">
+      <button type="button" onclick="closeVoiceResult()" aria-label="Zamknij"
+        style="position:absolute; top:2px; right:4px; background:none; border:none; color: rgba(245,247,250,0.5); width:16px; height:16px; padding:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <span id="voice-test-result-text"></span>
+    </div>
 
   </div>
 
@@ -2955,24 +2961,47 @@
   // ==========================================================================
 
   let voiceFinalTranscript = "";
+  let voiceRecognition = null;
+  let voiceListening = false;
+  let voiceCooldownUntil = 0;
+
+  function closeVoiceResult() {
+    const resultEl = document.getElementById("voice-test-result");
+    resultEl.style.display = "none";
+    document.getElementById("voice-test-result-text").textContent = "";
+  }
+
+  function setVoiceText(text) {
+    document.getElementById("voice-test-result").style.display = "block";
+    document.getElementById("voice-test-result-text").textContent = text;
+  }
 
   function startVoiceTest() {
-    const resultEl = document.getElementById("voice-test-result");
-    resultEl.style.display = "block";
-    voiceFinalTranscript = "";
+    // Tapniecie podczas sluchania = zatrzymaj biezaca sesje, zamiast probowac
+    // odpalic druga na raz (to byla przyczyna bledu "aborted").
+    if (voiceListening) {
+      if (voiceRecognition) { try { voiceRecognition.stop(); } catch {} }
+      return;
+    }
+
+    if (Date.now() < voiceCooldownUntil) {
+      setVoiceText("Poczekaj chwilę i spróbuj ponownie…");
+      return;
+    }
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
-      resultEl.textContent = "Rozpoznawanie mowy niedostępne w tej przeglądarce.";
+      setVoiceText("Rozpoznawanie mowy niedostępne w tej przeglądarce.");
       return;
     }
+
+    voiceFinalTranscript = "";
+    setVoiceText("Słucham…");
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = "pl-PL";
     recognition.continuous = false;
     recognition.interimResults = true;
-
-    resultEl.textContent = "Słucham…";
 
     recognition.onresult = (e) => {
       let transcript = "";
@@ -2980,25 +3009,39 @@
         transcript += e.results[i][0].transcript;
         if (e.results[i].isFinal) voiceFinalTranscript = transcript;
       }
-      resultEl.textContent = transcript || "…";
+      setVoiceText(transcript || "…");
     };
 
     recognition.onerror = (e) => {
-      resultEl.textContent = "Błąd: " + e.error;
+      // "aborted"/"no-speech" pojawiaja sie tez przy zwyklym, cichym zakonczeniu —
+      // nie pokazujemy tego jako alarmujacego bledu, tylko cichy komunikat.
+      if (e.error === "aborted" || e.error === "no-speech") {
+        if (!voiceFinalTranscript) setVoiceText("Nic nie usłyszano — spróbuj ponownie.");
+      } else {
+        setVoiceText("Błąd: " + e.error);
+      }
     };
 
     recognition.onend = () => {
+      voiceListening = false;
+      voiceRecognition = null;
+      voiceCooldownUntil = Date.now() + 400;
       if (voiceFinalTranscript) {
         processVoiceCommand(voiceFinalTranscript);
-      } else if (resultEl.textContent === "Słucham…") {
-        resultEl.textContent = "Nic nie usłyszano.";
+      } else {
+        const current = document.getElementById("voice-test-result-text").textContent;
+        if (current === "Słucham…") setVoiceText("Nic nie usłyszano.");
       }
     };
 
     try {
+      voiceRecognition = recognition;
+      voiceListening = true;
       recognition.start();
     } catch (err) {
-      resultEl.textContent = "Błąd startu: " + err.message;
+      voiceListening = false;
+      voiceRecognition = null;
+      setVoiceText("Błąd startu: " + err.message);
     }
   }
 
@@ -3115,8 +3158,6 @@
   }
 
   function processVoiceCommand(text) {
-    const resultEl = document.getElementById("voice-test-result");
-
     // Najpierw sprawdzamy czy to polecenie kalendarzowe (zawiera rozpoznawalna date) —
     // jesli nie znajdziemy zadnej daty, zakladamy ze to polecenie dodania zadania.
     const calResult = parseCalendarVoiceCommand(text);
@@ -3129,14 +3170,14 @@
       saveCalEvents(events);
 
       const dateLabel = calResult.date.toLocaleDateString("pl-PL", { day: "numeric", month: "long" });
-      resultEl.textContent = `Dodano do kalendarza: „${calResult.title}" — ${dateLabel}${calResult.time ? " o " + calResult.time : ""}`;
+      setVoiceText(`Dodano do kalendarza: „${calResult.title}" — ${dateLabel}${calResult.time ? " o " + calResult.time : ""}`);
       return;
     }
 
     const match = text.match(/(?:dodaj|wpisz|zapisz)\s+(?:do\s+listy\s+zada[nń]\s+)?(?:zadanie\s+)?(.+?)\s+(?:w|do)\s+kategorii\s+(.+)/i);
 
     if (!match) {
-      resultEl.textContent = `Nie rozpoznano polecenia: "${text}"`;
+      setVoiceText(`Nie rozpoznano polecenia: "${text}"`);
       return;
     }
 
@@ -3144,7 +3185,7 @@
     const categoryName = match[2].trim().replace(/[.,]+$/, "");
 
     if (!taskText || !categoryName) {
-      resultEl.textContent = `Nie udało się rozpoznać zadania/kategorii z: "${text}"`;
+      setVoiceText(`Nie udało się rozpoznać zadania/kategorii z: "${text}"`);
       return;
     }
 
@@ -3157,7 +3198,7 @@
     (list.tasks = list.tasks || []).push({ id: "task_" + Date.now(), text: taskText, done: false });
     saveTodoLists(lists);
 
-    resultEl.textContent = `Dodano „${taskText}" do kategorii „${categoryName}"`;
+    setVoiceText(`Dodano „${taskText}" do kategorii „${categoryName}"`);
   }
 
   // ==========================================================================
