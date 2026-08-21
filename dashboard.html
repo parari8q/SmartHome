@@ -1573,6 +1573,7 @@
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -4062,6 +4063,7 @@
     content.innerHTML = "";
     actionBtn.style.display = "none";
     actionBtn.onclick = null;
+    actionBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
     if (recipesScreen === "categories") {
       title.textContent = "Przepisy";
@@ -4153,14 +4155,22 @@
 
     if (recipesScreen === "addRecipe") {
       title.textContent = "Nowy przepis";
+      actionBtn.style.display = "inline-flex";
+      actionBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+      actionBtn.onclick = () => toggleDishPhotoSection();
       content.innerHTML =
         '<div class="recipe-field-label">Nazwa przepisu</div>' +
         '<input type="text" id="new-recipe-name" placeholder="np. Owsianka bananowa">' +
-        '<div class="recipe-field-label">Zdjęcie / screen (opcjonalnie, tylko podgląd)</div>' +
+        '<div id="dish-photo-section" style="display:none;">' +
+        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd)</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
         '<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;display:none;">' +
-        '<div class="recipe-field-label">Wklej tekst z Worda / Google Docs (opcjonalnie)</div>' +
+        '</div>' +
+        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — tekst zostanie rozpoznany automatycznie</div>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">Wgraj zdjęcie przepisu' +
+        '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeOcrUpload(event)"></label></div>' +
+        '<div class="recipe-field-label">...albo wklej tekst z Worda / Google Docs</div>' +
         '<textarea id="new-recipe-pasted" rows="3" placeholder="Wklej skopiowany tekst przepisu..."></textarea>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">...albo wgraj plik .docx' +
         '<input type="file" accept=".docx" style="display:none" onchange="handleRecipeDocxUpload(event)"></label>' +
@@ -4179,14 +4189,22 @@
       const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
       if (!r) { recipesScreen = "list"; renderRecipesScreen(); return; }
       title.textContent = "Edytuj przepis";
+      actionBtn.style.display = "inline-flex";
+      actionBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+      actionBtn.onclick = () => toggleDishPhotoSection();
       content.innerHTML =
         '<div class="recipe-field-label">Nazwa przepisu</div>' +
         `<input type="text" id="new-recipe-name" value="${escapeHtml(r.name)}">` +
-        '<div class="recipe-field-label">Zdjęcie / screen (opcjonalnie, tylko podgląd)</div>' +
+        `<div id="dish-photo-section" style="${r.image ? "display:block;" : "display:none;"}">` +
+        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd)</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
         `<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;${r.image ? "display:block;" : "display:none;"}" ${r.image ? `src="${r.image}"` : ""}>` +
-        '<div class="recipe-field-label">Wklej tekst z Worda / Google Docs (opcjonalnie)</div>' +
+        '</div>' +
+        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — tekst zostanie rozpoznany automatycznie</div>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">Wgraj zdjęcie przepisu' +
+        '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeOcrUpload(event)"></label></div>' +
+        '<div class="recipe-field-label">...albo wklej tekst z Worda / Google Docs</div>' +
         '<textarea id="new-recipe-pasted" rows="3" placeholder="Wklej skopiowany tekst przepisu..."></textarea>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">...albo wgraj plik .docx' +
         '<input type="file" accept=".docx" style="display:none" onchange="handleRecipeDocxUpload(event)"></label>' +
@@ -4367,6 +4385,32 @@
       });
     };
     reader.readAsArrayBuffer(file);
+  }
+
+  function toggleDishPhotoSection() {
+    const section = document.getElementById("dish-photo-section");
+    if (!section) return;
+    section.style.display = (section.style.display === "none" || !section.style.display) ? "block" : "none";
+  }
+
+  function handleRecipeOcrUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const ta = document.getElementById("new-recipe-pasted");
+    if (ta) ta.value = "Rozpoznaję tekst ze zdjęcia… (może to chwilę potrwać)";
+    if (typeof Tesseract === "undefined") {
+      if (ta) ta.value = "";
+      alert("Odczyt tekstu ze zdjęcia wymaga chwilowego połączenia z internetem przy pierwszym użyciu. Spróbuj ponownie mając Wi-Fi.");
+      return;
+    }
+    Tesseract.recognize(file, "pol+eng")
+      .then(({ data: { text } }) => {
+        if (ta) ta.value = text.trim();
+      })
+      .catch(() => {
+        if (ta) ta.value = "";
+        alert("Nie udało się odczytać tekstu ze zdjęcia. Spróbuj wyraźniejszego zdjęcia albo wklej tekst ręcznie.");
+      });
   }
 
   function splitPastedIntoIngredients() {
