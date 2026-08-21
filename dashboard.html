@@ -4046,7 +4046,7 @@
     if (recipesScreen === "detail" || recipesScreen === "addRecipe") {
       recipesScreen = "list"; renderRecipesScreen(); return;
     }
-    if (recipesScreen === "editRecipe") {
+    if (recipesScreen === "editRecipe" || recipesScreen === "moveRecipe") {
       recipesScreen = "detail"; renderRecipesScreen(); return;
     }
     if (recipesScreen === "shoppingList") {
@@ -4241,6 +4241,18 @@
         renderRecipesScreen();
       });
       content.appendChild(editBtn);
+      const moveBtn = document.createElement("button");
+      moveBtn.type = "button";
+      moveBtn.className = "recipe-form-btn";
+      moveBtn.style.marginTop = "10px";
+      moveBtn.style.background = "rgba(255,255,255,0.1)";
+      moveBtn.style.color = "#f5f7fa";
+      moveBtn.textContent = "Przenieś do innej kategorii";
+      moveBtn.addEventListener("click", () => {
+        recipesScreen = "moveRecipe";
+        renderRecipesScreen();
+      });
+      content.appendChild(moveBtn);
       const delBtn = document.createElement("button");
       delBtn.type = "button";
       delBtn.className = "recipe-form-btn";
@@ -4254,6 +4266,66 @@
         renderRecipesScreen();
       });
       content.appendChild(delBtn);
+      return;
+    }
+
+    if (recipesScreen === "moveRecipe") {
+      const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+      const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+      const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
+      if (!r) { recipesScreen = "list"; renderRecipesScreen(); return; }
+      title.textContent = "Przenieś: " + r.name;
+
+      const wrap = document.createElement("div");
+
+      const catLabel = document.createElement("div");
+      catLabel.className = "recipe-field-label";
+      catLabel.textContent = "Nowa kategoria";
+      wrap.appendChild(catLabel);
+
+      const catSelect = document.createElement("select");
+      catSelect.id = "move-recipe-category";
+      data.categories.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === recipesCurrentCategoryId) opt.selected = true;
+        catSelect.appendChild(opt);
+      });
+      wrap.appendChild(catSelect);
+
+      const scLabel = document.createElement("div");
+      scLabel.className = "recipe-field-label";
+      scLabel.textContent = "Nowa podkategoria";
+      wrap.appendChild(scLabel);
+
+      const scSelect = document.createElement("select");
+      scSelect.id = "move-recipe-subcategory";
+      wrap.appendChild(scSelect);
+
+      function fillSubcategoryOptions(catId) {
+        scSelect.innerHTML = "";
+        const c = data.categories.find(x => x.id === catId);
+        if (!c) return;
+        c.subcategories.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s.id;
+          opt.textContent = s.name;
+          if (catId === recipesCurrentCategoryId && s.id === recipesCurrentSubcategoryId) opt.selected = true;
+          scSelect.appendChild(opt);
+        });
+      }
+      fillSubcategoryOptions(recipesCurrentCategoryId);
+      catSelect.addEventListener("change", () => fillSubcategoryOptions(catSelect.value));
+
+      const moveBtn = document.createElement("button");
+      moveBtn.type = "button";
+      moveBtn.className = "recipe-form-btn";
+      moveBtn.textContent = "Przenieś tutaj";
+      moveBtn.addEventListener("click", () => submitMoveRecipe(catSelect.value, scSelect.value));
+      wrap.appendChild(moveBtn);
+
+      content.appendChild(wrap);
       return;
     }
 
@@ -4485,6 +4557,29 @@
     r.image = recipesPendingImage || null;
     saveRecipesData(data);
     recipesPendingImage = null;
+    recipesScreen = "detail";
+    renderRecipesScreen();
+  }
+
+  function submitMoveRecipe(targetCatId, targetScId) {
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+    const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+    const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
+    if (!r) return;
+    const targetCat = data.categories.find(c => c.id === targetCatId);
+    const targetSc = targetCat && targetCat.subcategories.find(s => s.id === targetScId);
+    if (!targetSc) return;
+    if (targetCatId === recipesCurrentCategoryId && targetScId === recipesCurrentSubcategoryId) {
+      recipesScreen = "detail";
+      renderRecipesScreen();
+      return;
+    }
+    sc.recipes = sc.recipes.filter(rr => rr.id !== r.id);
+    targetSc.recipes.push(r);
+    saveRecipesData(data);
+    recipesCurrentCategoryId = targetCatId;
+    recipesCurrentSubcategoryId = targetScId;
     recipesScreen = "detail";
     renderRecipesScreen();
   }
