@@ -3912,7 +3912,33 @@
   let recipesData = { categories: [] };
   let recipesSuppressSyncUntil = 0;
 
+  function asArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === "object") return Object.values(v);
+    return [];
+  }
+
+  function normalizeRecipesData(raw) {
+    const categories = asArray(raw && raw.categories);
+    return {
+      categories: categories.map(cat => ({
+        ...cat,
+        subcategories: asArray(cat && cat.subcategories).map(sc => ({
+          ...sc,
+          recipes: asArray(sc && sc.recipes).map(r => ({
+            ...r,
+            ingredients: asArray(r && r.ingredients)
+          }))
+        }))
+      }))
+    };
+  }
+
   function getRecipesData() {
+    // Firebase kasuje puste tablice ([]) przy zapisie — po odczycie trzeba
+    // je odtworzyc, inaczej np. "sc.recipes.length" wywali blad, gdy
+    // podkategoria akurat nie ma jeszcze zadnego przepisu.
+    recipesData = normalizeRecipesData(recipesData);
     return recipesData;
   }
 
@@ -3949,7 +3975,7 @@
       try {
         if (Date.now() < recipesSuppressSyncUntil) return;
         const payload = JSON.parse(e.data);
-        const incoming = (payload.data && payload.data.categories) ? payload.data : { categories: [] };
+        const incoming = normalizeRecipesData(payload.data);
         // dodatkowe zabezpieczenie: jesli serwer przysyla pusto, a lokalnie
         // mamy juz jakies kategorie, to prawdopodobnie jest to spozniony,
         // nieaktualny snapshot sprzed naszego zapisu — ignorujemy go zamiast
