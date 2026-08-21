@@ -4162,9 +4162,10 @@
         '<div class="recipe-field-label">Nazwa przepisu</div>' +
         '<input type="text" id="new-recipe-name" placeholder="np. Owsianka bananowa">' +
         '<div id="dish-photo-section" style="display:none;">' +
-        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd)</div>' +
+        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd) — wklej (Ctrl+V) albo wgraj plik</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
+        '<div id="dish-photo-paste-zone" class="recipe-file-btn" tabindex="0" style="cursor:text;">Kliknij tutaj i wklej zdjęcie (Ctrl+V)</div>' +
         '<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;display:none;">' +
         '</div>' +
         '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — wklej (Ctrl+V) albo wgraj plik, tekst zostanie rozpoznany automatycznie</div>' +
@@ -4196,9 +4197,10 @@
         '<div class="recipe-field-label">Nazwa przepisu</div>' +
         `<input type="text" id="new-recipe-name" value="${escapeHtml(r.name)}">` +
         `<div id="dish-photo-section" style="${r.image ? "display:block;" : "display:none;"}">` +
-        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd)</div>' +
+        '<div class="recipe-field-label">Zdjęcie gotowego dania (opcjonalnie, tylko podgląd) — wklej (Ctrl+V) albo wgraj plik</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
+        '<div id="dish-photo-paste-zone" class="recipe-file-btn" tabindex="0" style="cursor:text;">Kliknij tutaj i wklej zdjęcie (Ctrl+V)</div>' +
         `<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;${r.image ? "display:block;" : "display:none;"}" ${r.image ? `src="${r.image}"` : ""}>` +
         '</div>' +
         '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — wklej (Ctrl+V) albo wgraj plik, tekst zostanie rozpoznany automatycznie</div>' +
@@ -4359,6 +4361,10 @@
   function handleRecipeImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+    setDishPhoto(file);
+  }
+
+  function setDishPhoto(file) {
     const reader = new FileReader();
     reader.onload = () => {
       recipesPendingImage = reader.result;
@@ -4430,8 +4436,12 @@
         break;
       }
     }
-    if (imageFile) {
-      event.preventDefault();
+    if (!imageFile) return;
+    event.preventDefault();
+    const isDishPhotoTarget = event.target.closest && event.target.closest("#dish-photo-section");
+    if (isDishPhotoTarget) {
+      setDishPhoto(imageFile);
+    } else {
       runOcrOnFile(imageFile);
     }
   }
