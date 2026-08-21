@@ -4167,7 +4167,7 @@
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
         '<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;display:none;">' +
         '</div>' +
-        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — tekst zostanie rozpoznany automatycznie</div>' +
+        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — wklej (Ctrl+V) albo wgraj plik, tekst zostanie rozpoznany automatycznie</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wgraj zdjęcie przepisu' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeOcrUpload(event)"></label></div>' +
         '<div class="recipe-field-label">...albo wklej tekst z Worda / Google Docs</div>' +
@@ -4201,7 +4201,7 @@
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
         `<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;${r.image ? "display:block;" : "display:none;"}" ${r.image ? `src="${r.image}"` : ""}>` +
         '</div>' +
-        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — tekst zostanie rozpoznany automatycznie</div>' +
+        '<div class="recipe-field-label">Zdjęcie przepisu (np. screen ze strony) — wklej (Ctrl+V) albo wgraj plik, tekst zostanie rozpoznany automatycznie</div>' +
         '<div class="recipe-file-row"><label class="recipe-file-btn">Wgraj zdjęcie przepisu' +
         '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeOcrUpload(event)"></label></div>' +
         '<div class="recipe-field-label">...albo wklej tekst z Worda / Google Docs</div>' +
@@ -4396,6 +4396,10 @@
   function handleRecipeOcrUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+    runOcrOnFile(file);
+  }
+
+  function runOcrOnFile(file) {
     const ta = document.getElementById("new-recipe-pasted");
     if (ta) ta.value = "Rozpoznaję tekst ze zdjęcia… (może to chwilę potrwać)";
     if (typeof Tesseract === "undefined") {
@@ -4411,6 +4415,25 @@
         if (ta) ta.value = "";
         alert("Nie udało się odczytać tekstu ze zdjęcia. Spróbuj wyraźniejszego zdjęcia albo wklej tekst ręcznie.");
       });
+  }
+
+  // Wklejanie screena ze schowka (Ctrl+V) bezposrednio w formularzu przepisu —
+  // dziala niezaleznie od tego, na ktorym polu formularza akurat jest fokus.
+  function handleRecipesContentPaste(event) {
+    if (recipesScreen !== "addRecipe" && recipesScreen !== "editRecipe") return;
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) return;
+    let imageFile = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image/") === 0) {
+        imageFile = items[i].getAsFile();
+        break;
+      }
+    }
+    if (imageFile) {
+      event.preventDefault();
+      runOcrOnFile(imageFile);
+    }
   }
 
   function splitPastedIntoIngredients() {
@@ -4499,6 +4522,7 @@
   connectCalendarSync();
   connectRecipesSync();
   connectShoppingListSync();
+  document.getElementById("recipes-content").addEventListener("paste", handleRecipesContentPaste);
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
