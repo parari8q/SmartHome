@@ -251,6 +251,383 @@
     #icon-wrap { width: clamp(70px, 22vw, 120px); height: clamp(70px, 22vw, 120px); }
   }
 
+  /* --- wymuszony uklad niezalezny od realnej orientacji ekranu ---
+     html[data-layout="portrait"|"landscape"] jest ustawiane przez JS
+     na podstawie wyboru uzytkownika (patrz sekcja ORIENTACJA nizej)
+     i ma wyzszy priorytet niz automatyczne wykrywanie @media. */
+
+  html[data-layout="portrait"] #container { flex-direction: column; justify-content: center; gap: clamp(8px, 2vh, 20px); }
+  html[data-layout="portrait"] #col-clock { align-items: center; text-align: center; }
+  html[data-layout="portrait"] #date { max-width: none; }
+  html[data-layout="portrait"] #col-main { flex-direction: column; }
+  html[data-layout="portrait"] #main-text { align-items: center; }
+  html[data-layout="portrait"] #col-stats { grid-template-columns: repeat(4, 1fr); width: 100%; }
+  html[data-layout="portrait"] .stat { text-align: center; }
+  html[data-layout="portrait"] #clock { font-size: clamp(36px, 11vw, 64px); }
+  html[data-layout="portrait"] #temp { font-size: clamp(80px, 26vw, 150px); }
+  html[data-layout="portrait"] #icon-wrap { width: clamp(70px, 22vw, 120px); height: clamp(70px, 22vw, 120px); }
+
+  html[data-layout="landscape"] #container { flex-direction: row; justify-content: space-between; gap: clamp(12px, 3vw, 40px); }
+  html[data-layout="landscape"] #col-clock { align-items: normal; text-align: left; }
+  html[data-layout="landscape"] #date { max-width: 22vw; }
+  html[data-layout="landscape"] #col-main { flex-direction: row; }
+  html[data-layout="landscape"] #main-text { align-items: flex-start; }
+  html[data-layout="landscape"] #col-stats { grid-template-columns: repeat(2, 1fr); width: auto; }
+  html[data-layout="landscape"] .stat { text-align: left; }
+  html[data-layout="landscape"] #clock { font-size: clamp(28px, 9vh, 54px); }
+  html[data-layout="landscape"] #temp { font-size: clamp(56px, 22vh, 130px); }
+  html[data-layout="landscape"] #icon-wrap { width: clamp(60px, 20vh, 110px); height: clamp(60px, 20vh, 110px); }
+
+  /* --- overlay wyboru orientacji (pierwsze uruchomienie) --- */
+
+  #orientation-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: linear-gradient(180deg, #0b1220 0%, #131c33 100%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 4vh, 32px);
+    padding: 24px;
+  }
+
+  #orientation-picker.open { display: flex; }
+
+  #orientation-picker h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(18px, 3vh, 24px);
+    color: #f5f7fa;
+    text-align: center;
+  }
+
+  #orientation-picker .op-options {
+    display: flex;
+    gap: clamp(14px, 3vw, 28px);
+  }
+
+  .op-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    padding: clamp(18px, 3vh, 28px) clamp(20px, 4vw, 34px);
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+  }
+
+  .op-btn:active { background: rgba(255,255,255,0.12); }
+
+  .op-btn svg { width: clamp(36px, 7vh, 52px); height: clamp(36px, 7vh, 52px); color: var(--accent); }
+
+  /* --- widok ustawien --- */
+
+  #settings-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #0b1220 0%, #131c33 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 20;
+  }
+
+  #settings-view.open { transform: translateY(0); }
+
+  #settings-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: clamp(14px, 3vh, 26px);
+  }
+
+  #settings-back {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+  }
+
+  #settings-back svg { width: 100%; height: 100%; }
+
+  #settings-title {
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .settings-section-label {
+    font-size: clamp(11px, 2vh, 13px);
+    color: rgba(245,247,250,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .settings-choice-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: clamp(20px, 4vh, 34px);
+  }
+
+  .settings-choice-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: clamp(14px, 2.5vh, 20px);
+    color: rgba(245,247,250,0.7);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 2.2vh, 14px);
+    font-weight: 500;
+  }
+
+  .settings-choice-btn.active {
+    border-color: var(--accent);
+    color: #f5f7fa;
+    background: rgba(255,255,255,0.09);
+  }
+
+  .settings-choice-btn svg { width: clamp(26px, 5vh, 34px); height: clamp(26px, 5vh, 34px); }
+
+  /* --- widok przepisow --- */
+
+  #recipes-view {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #0e1a0d 0%, #182b16 100%);
+    transform: translateY(100%);
+    transition: transform 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2.5vh, 26px) clamp(20px, 3vw, 40px);
+    z-index: 20;
+  }
+
+  #recipes-view.open { transform: translateY(0); }
+
+  #recipes-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: clamp(10px, 2vh, 18px);
+  }
+
+  #recipes-back {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.6);
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+  }
+
+  #recipes-back svg { width: 100%; height: 100%; }
+
+  #recipes-title {
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #recipes-header-action {
+    background: none;
+    border: none;
+    color: var(--accent, #6fae5a);
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+  }
+  #recipes-header-action svg { width: 100%; height: 100%; }
+
+  #recipes-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .recipe-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.05);
+    border: none;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #f5f7fa;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .recipe-row:active { background: rgba(255,255,255,0.09); }
+
+  .recipe-row .rr-name {
+    flex: 1;
+    font-size: clamp(13px, 2.4vh, 15px);
+    font-weight: 500;
+  }
+
+  .recipe-row .rr-count {
+    font-size: clamp(11px, 2vh, 13px);
+    color: rgba(245,247,250,0.45);
+  }
+
+  .recipe-row .rr-delete {
+    background: none;
+    border: none;
+    color: rgba(245,247,250,0.3);
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+  .recipe-row .rr-delete svg { width: 100%; height: 100%; }
+
+  #recipes-add-bar {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    margin-top: clamp(10px, 2vh, 16px);
+  }
+
+  #recipes-add-bar input {
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  #recipes-add-bar input::placeholder { color: rgba(245,247,250,0.4); }
+
+  #recipes-add-bar button {
+    background: #6fae5a;
+    color: #0e1a0d;
+    border: none;
+    border-radius: 999px;
+    padding: 0 20px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 2.4vh, 15px);
+  }
+
+  .recipe-field-label {
+    font-size: clamp(11px, 2vh, 13px);
+    color: rgba(245,247,250,0.55);
+    margin: 14px 0 6px;
+  }
+
+  .recipe-field-label:first-child { margin-top: 0; }
+
+  #recipes-content input[type="text"],
+  #recipes-content textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #f5f7fa;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 2.2vh, 15px);
+    resize: vertical;
+  }
+
+  .recipe-form-btn {
+    margin-top: 18px;
+    background: #6fae5a;
+    color: #0e1a0d;
+    border: none;
+    border-radius: 999px;
+    padding: 12px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 2.4vh, 15px);
+    width: 100%;
+  }
+
+  .recipe-file-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .recipe-file-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 12px;
+    color: rgba(245,247,250,0.7);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 2vh, 13px);
+    text-align: center;
+  }
+
+  #recipe-detail-image {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 14px;
+    margin-bottom: 14px;
+    display: none;
+  }
+
+  .recipe-ingredient-line {
+    font-size: clamp(13px, 2.2vh, 15px);
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .shopping-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  .shopping-item-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    accent-color: #6fae5a;
+  }
+
+  .shopping-item-row span {
+    flex: 1;
+    font-size: clamp(13px, 2.2vh, 15px);
+  }
+
+  .shopping-item-row.checked span {
+    text-decoration: line-through;
+    color: rgba(245,247,250,0.4);
+  }
+
   /* --- ekran pogody jako wlasciwy "home", caly uklad bez zmian --- */
 
   #home-view {
@@ -1195,6 +1572,7 @@
   }
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
 
@@ -1241,7 +1619,7 @@
       </button>
     </div>
 
-    <button id="voice-test-btn" type="button" onclick="startVoiceTest()" aria-label="Polecenie głosowe"
+    <button id="voice-test-btn" type="button" onclick="startVoiceTest()" aria-label="Test mikrofonu"
       style="position: fixed; bottom: clamp(14px, 2.5vh, 24px); left: clamp(14px, 2.5vw, 24px); z-index: 30;
       width: clamp(38px, 7vh, 48px); height: clamp(38px, 7vh, 48px); border-radius: 50%;
       background: rgba(255,255,255,0.1); border: none; color: rgba(245,247,250,0.7);
@@ -1326,6 +1704,53 @@
     </div>
 
     <div id="spotify-status"></div>
+  </div>
+
+  <div id="orientation-picker">
+    <h2>Jak chcesz korzystac z aplikacji?</h2>
+    <div class="op-options">
+      <button type="button" class="op-btn" onclick="chooseLayout('portrait')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>
+        Pionowo
+      </button>
+      <button type="button" class="op-btn" onclick="chooseLayout('landscape')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+        Poziomo
+      </button>
+    </div>
+  </div>
+
+  <div id="settings-view">
+    <div id="settings-header">
+      <button id="settings-back" type="button" onclick="closeSettingsView()" aria-label="Wroc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="settings-title">Ustawienia</div>
+    </div>
+    <div class="settings-section-label">Orientacja ekranu</div>
+    <div class="settings-choice-row">
+      <button type="button" id="settings-portrait-btn" class="settings-choice-btn" onclick="chooseLayout('portrait')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>
+        Pionowo
+      </button>
+      <button type="button" id="settings-landscape-btn" class="settings-choice-btn" onclick="chooseLayout('landscape')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+        Poziomo
+      </button>
+    </div>
+  </div>
+
+  <div id="recipes-view">
+    <div id="recipes-header">
+      <button id="recipes-back" type="button" onclick="recipesGoBack()" aria-label="Wroc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="recipes-title">Przepisy</div>
+      <button id="recipes-header-action" type="button" style="display:none;" aria-label="Akcja">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div id="recipes-content"></div>
   </div>
 
   <div id="todo-view">
@@ -1466,6 +1891,20 @@
       action: "home",
       background: "linear-gradient(135deg, #3b7bc4, #245a9c)",
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a4 4 0 0 1 1-7.9 6 6 0 0 1 11.4-2A5 5 0 0 1 19 15H4z"/><line x1="9" y1="19" x2="9" y2="21"/><line x1="13" y1="19" x2="13" y2="21"/></svg>`
+    },
+    {
+      id: "recipes",
+      label: "Przepisy",
+      action: "recipes",
+      background: "linear-gradient(135deg, #6fae5a, #3f7a34)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h9l7 7v11H4z"/><path d="M13 3v7h7"/><line x1="8" y1="13" x2="15" y2="13"/><line x1="8" y1="16" x2="15" y2="16"/><line x1="8" y1="19" x2="12" y2="19"/></svg>`
+    },
+    {
+      id: "settings",
+      label: "Ustawienia",
+      action: "settings",
+      background: "linear-gradient(135deg, #6b7280, #3f4552)",
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>`
     }
   ];
 
@@ -1718,6 +2157,8 @@
           if (tile.action === "todo") { closeMenu(); openTodoView(); }
           if (tile.action === "supplements") { closeMenu(); openSupplementsView(); }
           if (tile.action === "calendar") { closeMenu(); openCalendarView(); }
+          if (tile.action === "recipes") { closeMenu(); openRecipesView(); }
+          if (tile.action === "settings") { closeMenu(); openSettingsView(); }
         });
       }
       el.innerHTML = `<span class="tile-icon">${tile.icon}</span><span class="tile-label">${tile.label}</span>`;
@@ -2169,28 +2610,43 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError(err.message);
+      setBrowseError();
     }
   }
 
-  function showPlaylistTracks(playlist) {
+  async function showPlaylistTracks(playlist) {
     setBrowseTitle(playlist.name);
     spotifyBrowseBack = showSpotifyPlaylists;
-    const el = document.getElementById("spotify-search-results");
-    el.innerHTML = "";
-    el.appendChild(makeRow(
-      "▶  Odtwórz całą playlistę",
-      "",
-      playlist.images && playlist.images[0] ? playlist.images[0].url : "",
-      () => playSpotifyContext(playlist.uri)
-    ));
-    el.innerHTML += `<div style="color: rgba(245,247,250,0.4); font-size: 12px; padding: 12px 6px;">Spotify nie pozwala aplikacjom takim jak ta pokazywać pojedynczych utworów z playlist — możesz jednak odtworzyć całą playlistę na aktywnym urządzeniu.</div>`;
+    setBrowseLoading();
+    try {
+      const res = await spotifyApi(`/playlists/${playlist.id}/tracks?limit=50`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error("HTTP " + res.status + " playlist.id=" + playlist.id + " " + body.slice(0, 150));
+      }
+      const data = await res.json();
+      const el = document.getElementById("spotify-search-results");
+      el.innerHTML = "";
+      el.appendChild(makeRow("▶  Odtwórz całą playlistę", "", playlist.images && playlist.images[0] ? playlist.images[0].url : "", () => playSpotifyContext(playlist.uri)));
+      data.items.filter(i => i.track).forEach(i => {
+        const t = i.track;
+        el.appendChild(makeRow(
+          t.name,
+          t.artists.map(a => a.name).join(", "),
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        ));
+      });
+    } catch (err) {
+      console.error(err);
+      setBrowseError();
+    }
   }
 
   async function showAlbum(album) {
     setBrowseTitle(album.name);
     const backFn = spotifyBrowseBack;
-    spotifyBrowseBack = backFn || showSearchHistory;
+    spotifyBrowseBack = backFn || showSpotifyPlaylists;
     setBrowseLoading();
     try {
       const res = await spotifyApi(`/albums/${album.id}/tracks?limit=50`);
@@ -2201,25 +2657,25 @@
       const data = await res.json();
       const el = document.getElementById("spotify-search-results");
       el.innerHTML = "";
-      el.appendChild(makeRow("▶  Odtwórz cały album", (album.artists || []).filter(Boolean).map(a => a.name).join(", "), album.images && album.images[0] ? album.images[0].url : "", () => playSpotifyContext(album.uri)));
+      el.appendChild(makeRow("▶  Odtwórz cały album", album.artists.map(a => a.name).join(", "), album.images && album.images[0] ? album.images[0].url : "", () => playSpotifyContext(album.uri)));
       data.items.forEach(t => {
         el.appendChild(makeRow(
           t.name,
-          (t.artists || []).filter(Boolean).map(a => a.name).join(", "),
+          t.artists.map(a => a.name).join(", "),
           album.images && album.images.length ? album.images[album.images.length - 1].url : "",
           () => playSpotifyTrack(t.uri)
         ));
       });
     } catch (err) {
       console.error(err);
-      setBrowseError(err.message);
+      setBrowseError();
     }
   }
 
   async function showArtist(artist) {
     setBrowseTitle(artist.name);
     const backFn = spotifyBrowseBack;
-    spotifyBrowseBack = backFn || showSearchHistory;
+    spotifyBrowseBack = backFn || showSpotifyPlaylists;
     setBrowseLoading();
     try {
       const market = await getSpotifyMarket();
@@ -2242,7 +2698,7 @@
       });
     } catch (err) {
       console.error(err);
-      setBrowseError(err.message);
+      setBrowseError();
     }
   }
 
@@ -2282,35 +2738,27 @@
 
       if (tracks.length) {
         el.appendChild(sectionLabel("Utwory"));
-        tracks.forEach(t => {
-          const subtitle = (t.artists || []).filter(Boolean).map(a => a.name).join(", ");
-          const image = t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "";
-          el.appendChild(makeRow(t.name, subtitle, image, () => {
-            addRecentItem({ kind: "track", id: t.id, uri: t.uri, name: t.name, subtitle, image });
-            playSpotifyTrack(t.uri);
-          }));
-        });
+        tracks.forEach(t => el.appendChild(makeRow(
+          t.name, t.artists.map(a => a.name).join(", "),
+          t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : "",
+          () => playSpotifyTrack(t.uri)
+        )));
       }
       if (artists.length) {
         el.appendChild(sectionLabel("Wykonawcy"));
-        artists.forEach(a => {
-          const image = a.images && a.images.length ? a.images[a.images.length - 1].url : "";
-          el.appendChild(makeRow(a.name, "Wykonawca", image, () => {
-            addRecentItem({ kind: "artist", id: a.id, uri: a.uri, name: a.name, subtitle: "Wykonawca", image });
-            showArtist(a);
-          }));
-        });
+        artists.forEach(a => el.appendChild(makeRow(
+          a.name, "Wykonawca",
+          a.images && a.images.length ? a.images[a.images.length - 1].url : "",
+          () => showArtist(a)
+        )));
       }
       if (albums.length) {
         el.appendChild(sectionLabel("Albumy"));
-        albums.forEach(al => {
-          const subtitle = (al.artists || []).filter(Boolean).map(a => a.name).join(", ");
-          const image = al.images && al.images.length ? al.images[al.images.length - 1].url : "";
-          el.appendChild(makeRow(al.name, subtitle, image, () => {
-            addRecentItem({ kind: "album", id: al.id, uri: al.uri, name: al.name, subtitle, image });
-            showAlbum(al);
-          }));
-        });
+        albums.forEach(al => el.appendChild(makeRow(
+          al.name, al.artists.map(a => a.name).join(", "),
+          al.images && al.images.length ? al.images[al.images.length - 1].url : "",
+          () => showAlbum(al)
+        )));
       }
       if (playlists.length) {
         el.appendChild(sectionLabel("Playlisty"));
@@ -2491,15 +2939,13 @@
     }
 
     lists.forEach(list => {
-      const openCount = (list.tasks || []).filter(t => !t.done).length;
-      const row = document.createElement("div");
+      const openCount = list.tasks.filter(t => !t.done).length;
+      const row = document.createElement("button");
+      row.type = "button";
       row.className = "todo-list-row";
       row.innerHTML = `
         <span class="tl-name">${list.name}</span>
         <span class="tl-count">${openCount}</span>
-        <span class="tl-edit" title="Edytuj nazwę">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </span>
         <span class="tl-delete" title="Usuń listę">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </span>
@@ -2508,45 +2954,12 @@
         e.stopPropagation();
         deleteTodoList(list.id);
       });
-      row.querySelector(".tl-edit").addEventListener("click", (e) => {
-        e.stopPropagation();
-        startEditListName(list.id, row);
-      });
       row.addEventListener("click", () => {
         todoCurrentListId = list.id;
         renderTodoScreen();
       });
       content.appendChild(row);
     });
-  }
-
-  function startEditListName(listId, row) {
-    const list = getTodoLists().find(l => l.id === listId);
-    if (!list) return;
-    const nameSpan = row.querySelector(".tl-name");
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = list.name;
-    input.className = "todo-edit-input";
-    input.addEventListener("click", (e) => e.stopPropagation());
-    input.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter") saveListNameEdit(listId, input.value);
-      if (e.key === "Escape") renderTodoListsScreen();
-    });
-    input.addEventListener("blur", () => saveListNameEdit(listId, input.value));
-    nameSpan.replaceWith(input);
-    input.focus();
-    input.select();
-  }
-
-  function saveListNameEdit(listId, newName) {
-    newName = newName.trim();
-    const lists = getTodoLists();
-    const list = lists.find(l => l.id === listId);
-    if (list && newName) list.name = newName;
-    saveTodoLists(lists);
-    renderTodoListsScreen();
   }
 
   function renderTodoTasksScreen() {
@@ -2559,12 +2972,12 @@
     const content = document.getElementById("todo-content");
     content.innerHTML = "";
 
-    if (!list.tasks || list.tasks.length === 0) {
+    if (list.tasks.length === 0) {
       content.innerHTML = `<div style="color: rgba(245,247,250,0.5); font-size: 13px; padding: 8px;">Ta lista jest pusta — dodaj pierwszą pozycję na dole.</div>`;
       return;
     }
 
-    (list.tasks || []).forEach(task => {
+    list.tasks.forEach(task => {
       const row = document.createElement("div");
       row.className = "todo-task-row" + (task.done ? " done" : "");
       row.innerHTML = `
@@ -2572,50 +2985,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
         <div class="tt-text">${task.text}</div>
-        <button class="tt-edit" type="button" aria-label="Edytuj">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>
         <button class="tt-delete" type="button" aria-label="Usuń">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       `;
       row.querySelector(".tt-check").addEventListener("click", () => toggleTodoTask(task.id));
       row.querySelector(".tt-delete").addEventListener("click", () => deleteTodoTask(task.id));
-      row.querySelector(".tt-edit").addEventListener("click", () => startEditTaskText(task.id, row));
       content.appendChild(row);
     });
-  }
-
-  function startEditTaskText(taskId, row) {
-    const list = getTodoLists().find(l => l.id === todoCurrentListId);
-    if (!list) return;
-    const task = (list.tasks || []).find(t => t.id === taskId);
-    if (!task) return;
-    const textDiv = row.querySelector(".tt-text");
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = task.text;
-    input.className = "todo-edit-input";
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") saveTaskTextEdit(taskId, input.value);
-      if (e.key === "Escape") renderTodoTasksScreen();
-    });
-    input.addEventListener("blur", () => saveTaskTextEdit(taskId, input.value));
-    textDiv.replaceWith(input);
-    input.focus();
-    input.select();
-  }
-
-  function saveTaskTextEdit(taskId, newText) {
-    newText = newText.trim();
-    const lists = getTodoLists();
-    const list = lists.find(l => l.id === todoCurrentListId);
-    if (list) {
-      const task = (list.tasks || []).find(t => t.id === taskId);
-      if (task && newText) task.text = newText;
-    }
-    saveTodoLists(lists);
-    renderTodoTasksScreen();
   }
 
   function todoSubmitInput() {
@@ -2648,7 +3025,7 @@
     const lists = getTodoLists();
     const list = lists.find(l => l.id === listId);
     if (!list) return;
-    (list.tasks = list.tasks || []).push({ id: "task_" + Date.now(), text, done: false });
+    list.tasks.push({ id: "task_" + Date.now(), text, done: false });
     saveTodoLists(lists);
     renderTodoTasksScreen();
   }
@@ -2657,7 +3034,7 @@
     const lists = getTodoLists();
     const list = lists.find(l => l.id === todoCurrentListId);
     if (!list) return;
-    const task = (list.tasks || []).find(t => t.id === taskId);
+    const task = list.tasks.find(t => t.id === taskId);
     if (!task) return;
     task.done = !task.done;
     saveTodoLists(lists);
@@ -2668,7 +3045,7 @@
     const lists = getTodoLists();
     const list = lists.find(l => l.id === todoCurrentListId);
     if (!list) return;
-    list.tasks = (list.tasks || []).filter(t => t.id !== taskId);
+    list.tasks = list.tasks.filter(t => t.id !== taskId);
     saveTodoLists(lists);
     renderTodoTasksScreen();
   }
@@ -3458,7 +3835,446 @@
     renderCalendarDayScreen();
   }
 
+  // ==========================================================================
+  // ORIENTACJA — reczny wybor ukladu pionowego/poziomego (niezalezny od
+  // faktycznej rotacji ekranu). Zapisywany w localStorage, do zmiany w
+  // dowolnym momencie w Ustawieniach.
+  // ==========================================================================
+
+  function applyLayoutMode(mode) {
+    document.documentElement.setAttribute("data-layout", mode);
+    const pBtn = document.getElementById("settings-portrait-btn");
+    const lBtn = document.getElementById("settings-landscape-btn");
+    if (pBtn && lBtn) {
+      pBtn.classList.toggle("active", mode === "portrait");
+      lBtn.classList.toggle("active", mode === "landscape");
+    }
+  }
+
+  function chooseLayout(mode) {
+    localStorage.setItem("layoutMode", mode);
+    applyLayoutMode(mode);
+    document.getElementById("orientation-picker").classList.remove("open");
+  }
+
+  function initLayoutMode() {
+    const saved = localStorage.getItem("layoutMode");
+    if (saved) {
+      applyLayoutMode(saved);
+    } else {
+      const guess = window.matchMedia("(orientation: portrait)").matches ? "portrait" : "landscape";
+      applyLayoutMode(guess);
+      document.getElementById("orientation-picker").classList.add("open");
+    }
+  }
+
+  function openSettingsView() {
+    const saved = localStorage.getItem("layoutMode") ||
+      (window.matchMedia("(orientation: portrait)").matches ? "portrait" : "landscape");
+    applyLayoutMode(saved);
+    document.getElementById("settings-view").classList.add("open");
+  }
+
+  function closeSettingsView() {
+    document.getElementById("settings-view").classList.remove("open");
+  }
+
+  // ==========================================================================
+  // PRZEPISY — kategorie (np. Dieta PCOS) -> podkategorie (Sniadanie, Obiad,
+  // Kolacja, Deser) -> przepisy. Plus generator listy zakupow z zaznaczonych
+  // przepisow (checkboxy "mam / do kupienia").
+  //
+  // UWAGA: zdjecie/screen dodane do przepisu sluzy tylko jako podglad wizualny
+  // — automatyczne rozpoznawanie skladnikow ze zdjecia nie jest tu mozliwe
+  // bez zewnetrznego API OCR/AI, ktorego ta strona nie ma. Dla pliku .docx
+  // (Word) dziala prawdziwa ekstrakcja tekstu (biblioteka mammoth.js), ktora
+  // wklada surowy tekst do pola do przejrzenia i podzielenia na skladniki.
+  // ==========================================================================
+
+  let recipesScreen = "categories";
+  let recipesCurrentCategoryId = null;
+  let recipesCurrentSubcategoryId = null;
+  let recipesCurrentRecipeId = null;
+  let recipesPendingImage = null;
+  let recipesShoppingSelection = new Set();
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function getRecipesData() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("recipesData"));
+      return parsed && parsed.categories ? parsed : { categories: [] };
+    } catch (e) {
+      return { categories: [] };
+    }
+  }
+
+  function saveRecipesData(data) {
+    localStorage.setItem("recipesData", JSON.stringify(data));
+  }
+
+  function openRecipesView() {
+    recipesScreen = "categories";
+    document.getElementById("recipes-view").classList.add("open");
+    renderRecipesScreen();
+  }
+
+  function closeRecipesView() {
+    document.getElementById("recipes-view").classList.remove("open");
+  }
+
+  function recipesGoBack() {
+    if (recipesScreen === "categories") { closeRecipesView(); return; }
+    if (recipesScreen === "subcategories" || recipesScreen === "addCategory" || recipesScreen === "shoppingPick") {
+      recipesScreen = "categories"; renderRecipesScreen(); return;
+    }
+    if (recipesScreen === "list" || recipesScreen === "addSubcategory") {
+      recipesScreen = "subcategories"; renderRecipesScreen(); return;
+    }
+    if (recipesScreen === "detail" || recipesScreen === "addRecipe") {
+      recipesScreen = "list"; renderRecipesScreen(); return;
+    }
+    if (recipesScreen === "shoppingList") {
+      recipesScreen = "shoppingPick"; renderRecipesScreen(); return;
+    }
+    recipesScreen = "categories"; renderRecipesScreen();
+  }
+
+  function renderRecipesScreen() {
+    const data = getRecipesData();
+    const title = document.getElementById("recipes-title");
+    const content = document.getElementById("recipes-content");
+    const actionBtn = document.getElementById("recipes-header-action");
+    content.innerHTML = "";
+    actionBtn.style.display = "none";
+    actionBtn.onclick = null;
+
+    if (recipesScreen === "categories") {
+      title.textContent = "Przepisy";
+      actionBtn.style.display = "inline-flex";
+      actionBtn.onclick = () => { recipesScreen = "addCategory"; renderRecipesScreen(); };
+      if (data.categories.length === 0) {
+        content.innerHTML = '<div style="opacity:0.5;padding:20px 0;text-align:center;font-size:13px;">Brak kategorii. Dodaj pierwszą (+)</div>';
+      }
+      data.categories.forEach(cat => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "recipe-row";
+        const count = cat.subcategories.reduce((s, sc) => s + sc.recipes.length, 0);
+        row.innerHTML = `<span class="rr-name">${escapeHtml(cat.name)}</span><span class="rr-count">${count}</span>` +
+          `<span class="rr-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`;
+        row.querySelector(".rr-delete").addEventListener("click", (e) => { e.stopPropagation(); deleteRecipeCategory(cat.id); });
+        row.addEventListener("click", () => { recipesCurrentCategoryId = cat.id; recipesScreen = "subcategories"; renderRecipesScreen(); });
+        content.appendChild(row);
+      });
+      const shopBtn = document.createElement("button");
+      shopBtn.type = "button";
+      shopBtn.className = "recipe-form-btn";
+      shopBtn.style.marginTop = "10px";
+      shopBtn.textContent = "Zrób listę zakupów";
+      shopBtn.addEventListener("click", () => { recipesShoppingSelection = new Set(); recipesScreen = "shoppingPick"; renderRecipesScreen(); });
+      content.appendChild(shopBtn);
+      return;
+    }
+
+    if (recipesScreen === "addCategory") {
+      title.textContent = "Nowa kategoria";
+      content.innerHTML =
+        '<div class="recipe-field-label">Nazwa kategorii (np. Dieta PCOS)</div>' +
+        '<input type="text" id="new-cat-name" placeholder="Nazwa...">' +
+        '<button type="button" class="recipe-form-btn" onclick="submitNewCategory()">Dodaj kategorię</button>';
+      return;
+    }
+
+    if (recipesScreen === "subcategories") {
+      const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+      if (!cat) { recipesScreen = "categories"; renderRecipesScreen(); return; }
+      title.textContent = cat.name;
+      actionBtn.style.display = "inline-flex";
+      actionBtn.onclick = () => { recipesScreen = "addSubcategory"; renderRecipesScreen(); };
+      cat.subcategories.forEach(sc => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "recipe-row";
+        row.innerHTML = `<span class="rr-name">${escapeHtml(sc.name)}</span><span class="rr-count">${sc.recipes.length}</span>` +
+          `<span class="rr-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`;
+        row.querySelector(".rr-delete").addEventListener("click", (e) => { e.stopPropagation(); deleteRecipeSubcategory(cat.id, sc.id); });
+        row.addEventListener("click", () => { recipesCurrentSubcategoryId = sc.id; recipesScreen = "list"; renderRecipesScreen(); });
+        content.appendChild(row);
+      });
+      return;
+    }
+
+    if (recipesScreen === "addSubcategory") {
+      title.textContent = "Nowa podkategoria";
+      content.innerHTML =
+        '<div class="recipe-field-label">Nazwa podkategorii (np. Śniadanie)</div>' +
+        '<input type="text" id="new-subcat-name" placeholder="Nazwa...">' +
+        '<button type="button" class="recipe-form-btn" onclick="submitNewSubcategory()">Dodaj podkategorię</button>';
+      return;
+    }
+
+    if (recipesScreen === "list") {
+      const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+      const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+      if (!cat || !sc) { recipesScreen = "categories"; renderRecipesScreen(); return; }
+      title.textContent = cat.name + " / " + sc.name;
+      actionBtn.style.display = "inline-flex";
+      actionBtn.onclick = () => { recipesPendingImage = null; recipesScreen = "addRecipe"; renderRecipesScreen(); };
+      if (sc.recipes.length === 0) {
+        content.innerHTML = '<div style="opacity:0.5;padding:20px 0;text-align:center;font-size:13px;">Brak przepisów. Dodaj pierwszy (+)</div>';
+      }
+      sc.recipes.forEach(r => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "recipe-row";
+        row.innerHTML = `<span class="rr-name">${escapeHtml(r.name)}</span>` +
+          `<span class="rr-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`;
+        row.querySelector(".rr-delete").addEventListener("click", (e) => { e.stopPropagation(); deleteRecipe(cat.id, sc.id, r.id); });
+        row.addEventListener("click", () => { recipesCurrentRecipeId = r.id; recipesScreen = "detail"; renderRecipesScreen(); });
+        content.appendChild(row);
+      });
+      return;
+    }
+
+    if (recipesScreen === "addRecipe") {
+      title.textContent = "Nowy przepis";
+      content.innerHTML =
+        '<div class="recipe-field-label">Nazwa przepisu</div>' +
+        '<input type="text" id="new-recipe-name" placeholder="np. Owsianka bananowa">' +
+        '<div class="recipe-field-label">Zdjęcie / screen (opcjonalnie, tylko podgląd)</div>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
+        '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
+        '<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;display:none;">' +
+        '<div class="recipe-field-label">Wklej tekst z Worda / Google Docs (opcjonalnie)</div>' +
+        '<textarea id="new-recipe-pasted" rows="3" placeholder="Wklej skopiowany tekst przepisu..."></textarea>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">...albo wgraj plik .docx' +
+        '<input type="file" accept=".docx" style="display:none" onchange="handleRecipeDocxUpload(event)"></label>' +
+        '<button type="button" class="recipe-file-btn" onclick="splitPastedIntoIngredients()">Rozbij na składniki ↓</button></div>' +
+        '<div class="recipe-field-label">Składniki (każdy w osobnej linii)</div>' +
+        '<textarea id="new-recipe-ingredients" rows="6" placeholder="np.&#10;2 jajka&#10;1 banan&#10;pół szklanki płatków owsianych"></textarea>' +
+        '<div class="recipe-field-label">Sposób przygotowania (opcjonalnie)</div>' +
+        '<textarea id="new-recipe-instructions" rows="4" placeholder="Kroki przygotowania..."></textarea>' +
+        '<button type="button" class="recipe-form-btn" onclick="submitNewRecipe()">Zapisz przepis</button>';
+      return;
+    }
+
+    if (recipesScreen === "detail") {
+      const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+      const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+      const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
+      if (!r) { recipesScreen = "list"; renderRecipesScreen(); return; }
+      title.textContent = r.name;
+      let html = "";
+      if (r.image) html += `<img id="recipe-detail-image" style="display:block;" src="${r.image}">`;
+      html += '<div class="recipe-field-label">Składniki</div>';
+      (r.ingredients || []).forEach(ing => { html += `<div class="recipe-ingredient-line">${escapeHtml(ing)}</div>`; });
+      if (r.instructions) {
+        html += '<div class="recipe-field-label">Przygotowanie</div>';
+        html += `<div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${escapeHtml(r.instructions)}</div>`;
+      }
+      content.innerHTML = html;
+      return;
+    }
+
+    if (recipesScreen === "shoppingPick") {
+      title.textContent = "Wybierz przepisy";
+      const allRecipes = [];
+      data.categories.forEach(cat => cat.subcategories.forEach(sc => sc.recipes.forEach(r => {
+        allRecipes.push({ id: r.id, name: r.name, label: cat.name + " / " + sc.name, ingredients: r.ingredients || [] });
+      })));
+      if (allRecipes.length === 0) {
+        content.innerHTML = '<div style="opacity:0.5;padding:20px 0;text-align:center;font-size:13px;">Brak zapisanych przepisów</div>';
+      }
+      allRecipes.forEach(r => {
+        const row = document.createElement("label");
+        row.className = "shopping-item-row";
+        row.innerHTML = `<input type="checkbox" ${recipesShoppingSelection.has(r.id) ? "checked" : ""}>` +
+          `<span>${escapeHtml(r.name)} <span style="opacity:0.5;font-size:11px;">(${escapeHtml(r.label)})</span></span>`;
+        row.querySelector("input").addEventListener("change", (e) => {
+          if (e.target.checked) recipesShoppingSelection.add(r.id); else recipesShoppingSelection.delete(r.id);
+        });
+        content.appendChild(row);
+      });
+      const genBtn = document.createElement("button");
+      genBtn.type = "button";
+      genBtn.className = "recipe-form-btn";
+      genBtn.textContent = "Generuj listę zakupów";
+      genBtn.addEventListener("click", () => { generateShoppingList(allRecipes); recipesScreen = "shoppingList"; renderRecipesScreen(); });
+      content.appendChild(genBtn);
+      return;
+    }
+
+    if (recipesScreen === "shoppingList") {
+      title.textContent = "Lista zakupów";
+      const list = getShoppingList();
+      if (list.length === 0) {
+        content.innerHTML = '<div style="opacity:0.5;padding:20px 0;text-align:center;font-size:13px;">Lista jest pusta</div>';
+      }
+      list.forEach((item, i) => {
+        const row = document.createElement("label");
+        row.className = "shopping-item-row" + (item.checked ? " checked" : "");
+        row.innerHTML = `<input type="checkbox" ${item.checked ? "checked" : ""}><span>${escapeHtml(item.text)}</span>`;
+        row.querySelector("input").addEventListener("change", () => toggleShoppingItem(i));
+        content.appendChild(row);
+      });
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "recipe-form-btn";
+      clearBtn.style.background = "rgba(255,255,255,0.1)";
+      clearBtn.style.color = "#f5f7fa";
+      clearBtn.textContent = "Wyczyść listę";
+      clearBtn.addEventListener("click", () => { localStorage.removeItem("shoppingList"); renderRecipesScreen(); });
+      content.appendChild(clearBtn);
+      return;
+    }
+  }
+
+  function submitNewCategory() {
+    const input = document.getElementById("new-cat-name");
+    const name = input.value.trim();
+    if (!name) return;
+    const data = getRecipesData();
+    data.categories.push({
+      id: uid(),
+      name,
+      subcategories: ["Śniadanie", "Obiad", "Kolacja", "Deser"].map(n => ({ id: uid(), name: n, recipes: [] }))
+    });
+    saveRecipesData(data);
+    recipesScreen = "categories";
+    renderRecipesScreen();
+  }
+
+  function deleteRecipeCategory(id) {
+    if (!confirm("Usunąć tę kategorię wraz ze wszystkimi przepisami?")) return;
+    const data = getRecipesData();
+    data.categories = data.categories.filter(c => c.id !== id);
+    saveRecipesData(data);
+    renderRecipesScreen();
+  }
+
+  function submitNewSubcategory() {
+    const input = document.getElementById("new-subcat-name");
+    const name = input.value.trim();
+    if (!name) return;
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+    if (cat) cat.subcategories.push({ id: uid(), name, recipes: [] });
+    saveRecipesData(data);
+    recipesScreen = "subcategories";
+    renderRecipesScreen();
+  }
+
+  function deleteRecipeSubcategory(catId, scId) {
+    if (!confirm("Usunąć tę podkategorię wraz z przepisami?")) return;
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === catId);
+    if (cat) cat.subcategories = cat.subcategories.filter(s => s.id !== scId);
+    saveRecipesData(data);
+    renderRecipesScreen();
+  }
+
+  function handleRecipeImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      recipesPendingImage = reader.result;
+      const preview = document.getElementById("new-recipe-image-preview");
+      if (preview) { preview.src = recipesPendingImage; preview.style.display = "block"; }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleRecipeDocxUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (typeof mammoth === "undefined") {
+      alert("Odczyt plików .docx wymaga chwilowego połączenia z internetem. Spróbuj ponownie mając Wi-Fi, albo wklej tekst ręcznie.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      mammoth.extractRawText({ arrayBuffer: reader.result }).then(result => {
+        const ta = document.getElementById("new-recipe-pasted");
+        if (ta) ta.value = result.value;
+      }).catch(() => {
+        alert("Nie udało się odczytać pliku. Spróbuj wkleić tekst ręcznie.");
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function splitPastedIntoIngredients() {
+    const pasted = document.getElementById("new-recipe-pasted");
+    const ingredientsTa = document.getElementById("new-recipe-ingredients");
+    if (!pasted || !ingredientsTa) return;
+    const lines = pasted.value.split(/\n|,/).map(l => l.trim()).filter(Boolean);
+    const existing = ingredientsTa.value.trim();
+    ingredientsTa.value = (existing ? existing + "\n" : "") + lines.join("\n");
+  }
+
+  function submitNewRecipe() {
+    const name = document.getElementById("new-recipe-name").value.trim();
+    const ingredientsRaw = document.getElementById("new-recipe-ingredients").value;
+    const instructions = document.getElementById("new-recipe-instructions").value.trim();
+    if (!name) return;
+    const ingredients = ingredientsRaw.split("\n").map(l => l.trim()).filter(Boolean);
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+    const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+    if (!sc) return;
+    sc.recipes.push({ id: uid(), name, ingredients, instructions, image: recipesPendingImage || null, createdAt: Date.now() });
+    saveRecipesData(data);
+    recipesPendingImage = null;
+    recipesScreen = "list";
+    renderRecipesScreen();
+  }
+
+  function deleteRecipe(catId, scId, recipeId) {
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === catId);
+    const sc = cat && cat.subcategories.find(s => s.id === scId);
+    if (sc) sc.recipes = sc.recipes.filter(r => r.id !== recipeId);
+    saveRecipesData(data);
+    renderRecipesScreen();
+  }
+
+  function generateShoppingList(allRecipes) {
+    const selected = allRecipes.filter(r => recipesShoppingSelection.has(r.id));
+    const seen = new Set();
+    const items = [];
+    selected.forEach(r => {
+      r.ingredients.forEach(ing => {
+        const key = ing.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); items.push({ text: ing, checked: false }); }
+      });
+    });
+    localStorage.setItem("shoppingList", JSON.stringify(items));
+  }
+
+  function getShoppingList() {
+    try { return JSON.parse(localStorage.getItem("shoppingList")) || []; }
+    catch (e) { return []; }
+  }
+
+  function toggleShoppingItem(index) {
+    const list = getShoppingList();
+    if (list[index]) list[index].checked = !list[index].checked;
+    localStorage.setItem("shoppingList", JSON.stringify(list));
+    renderRecipesScreen();
+  }
+
   // Start
+  initLayoutMode();
   document.getElementById("spotify-redirect-debug").textContent =
     "Redirect URI używany przez tę stronę: " + SPOTIFY_CONFIG.redirectUri;
   handleSpotifyRedirect();
