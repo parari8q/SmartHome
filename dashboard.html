@@ -3918,13 +3918,17 @@
 
   function saveRecipesData(data) {
     recipesData = data;
-    recipesSuppressSyncUntil = Date.now() + 2500;
+    recipesSuppressSyncUntil = Date.now() + 4000;
     const statusEl = document.getElementById("recipes-status");
     fetch(FIREBASE_DB_URL + "/recipes_data.json", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     }).then(async (res) => {
+      // wydluzamy okno ochronne PO potwierdzeniu zapisu — chroni przed
+      // opoznionym "echem" z Firebase, ktore mogloby przyjsc po wygasnieciu
+      // pierwszego okna na wolnym polaczeniu i nadpisac swieze dane starymi.
+      recipesSuppressSyncUntil = Date.now() + 3000;
       if (!res.ok) {
         const body = await res.text();
         if (statusEl) statusEl.textContent = "Błąd zapisu: HTTP " + res.status + " " + body.slice(0, 150);
@@ -3945,7 +3949,14 @@
       try {
         if (Date.now() < recipesSuppressSyncUntil) return;
         const payload = JSON.parse(e.data);
-        recipesData = (payload.data && payload.data.categories) ? payload.data : { categories: [] };
+        const incoming = (payload.data && payload.data.categories) ? payload.data : { categories: [] };
+        // dodatkowe zabezpieczenie: jesli serwer przysyla pusto, a lokalnie
+        // mamy juz jakies kategorie, to prawdopodobnie jest to spozniony,
+        // nieaktualny snapshot sprzed naszego zapisu — ignorujemy go zamiast
+        // kasowac widoczne dane. Prawdziwe usuniecie wszystkich kategorii
+        // (np. z innego urzadzenia) i tak pojawi sie w kolejnym evencie.
+        if (incoming.categories.length === 0 && recipesData.categories.length > 0) return;
+        recipesData = incoming;
         if (document.getElementById("recipes-view").classList.contains("open")) renderRecipesScreen();
         if (statusEl) statusEl.textContent = "";
       } catch (err) {
