@@ -1751,6 +1751,7 @@
       </button>
     </div>
     <div id="recipes-content"></div>
+    <div id="recipes-status" style="font-size: 11px; color: rgba(245,247,250,0.4); padding: 4px 4px 0;"></div>
   </div>
 
   <div id="todo-view">
@@ -3908,17 +3909,82 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
 
+  let recipesData = { categories: [] };
+  let recipesSuppressSyncUntil = 0;
+
   function getRecipesData() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("recipesData"));
-      return parsed && parsed.categories ? parsed : { categories: [] };
-    } catch (e) {
-      return { categories: [] };
-    }
+    return recipesData;
   }
 
   function saveRecipesData(data) {
-    localStorage.setItem("recipesData", JSON.stringify(data));
+    recipesData = data;
+    recipesSuppressSyncUntil = Date.now() + 2500;
+    const statusEl = document.getElementById("recipes-status");
+    fetch(FIREBASE_DB_URL + "/recipes_data.json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.text();
+        if (statusEl) statusEl.textContent = "Błąd zapisu: HTTP " + res.status + " " + body.slice(0, 150);
+      } else if (statusEl) {
+        statusEl.textContent = "";
+      }
+    }).catch(err => {
+      console.error("Błąd zapisu przepisów do Firebase:", err);
+      if (statusEl) statusEl.textContent = "Błąd sieci przy zapisie: " + err.message;
+    });
+  }
+
+  function connectRecipesSync() {
+    const statusEl = document.getElementById("recipes-status");
+    if (statusEl) statusEl.textContent = "Łączenie z bazą…";
+    const source = new EventSource(FIREBASE_DB_URL + "/recipes_data.json");
+    source.addEventListener("put", (e) => {
+      try {
+        if (Date.now() < recipesSuppressSyncUntil) return;
+        const payload = JSON.parse(e.data);
+        recipesData = (payload.data && payload.data.categories) ? payload.data : { categories: [] };
+        if (document.getElementById("recipes-view").classList.contains("open")) renderRecipesScreen();
+        if (statusEl) statusEl.textContent = "";
+      } catch (err) {
+        console.error("Błąd odczytu przepisów z Firebase:", err);
+        if (statusEl) statusEl.textContent = "Błąd odczytu danych: " + err.message;
+      }
+    });
+    source.onerror = () => {
+      if (statusEl) statusEl.textContent = "Błąd połączenia z bazą przepisów.";
+      console.warn("Połączenie z bazą przepisów przerwane — przeglądarka spróbuje wznowić automatycznie.");
+    };
+  }
+
+  let shoppingListData = [];
+
+  function getShoppingList() {
+    return shoppingListData;
+  }
+
+  function saveShoppingListRemote(list) {
+    shoppingListData = list;
+    fetch(FIREBASE_DB_URL + "/shopping_list.json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(list)
+    }).catch(err => console.error("Błąd zapisu listy zakupów:", err));
+  }
+
+  function connectShoppingListSync() {
+    const source = new EventSource(FIREBASE_DB_URL + "/shopping_list.json");
+    source.addEventListener("put", (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        shoppingListData = payload.data || [];
+        if (recipesScreen === "shoppingList") renderRecipesScreen();
+      } catch (err) {
+        console.error("Błąd odczytu listy zakupów:", err);
+      }
+    });
   }
 
   function openRecipesView() {
@@ -3941,6 +4007,9 @@
     }
     if (recipesScreen === "detail" || recipesScreen === "addRecipe") {
       recipesScreen = "list"; renderRecipesScreen(); return;
+    }
+    if (recipesScreen === "editRecipe") {
+      recipesScreen = "detail"; renderRecipesScreen(); return;
     }
     if (recipesScreen === "shoppingList") {
       recipesScreen = "shoppingPick"; renderRecipesScreen(); return;
@@ -4067,6 +4136,32 @@
       return;
     }
 
+    if (recipesScreen === "editRecipe") {
+      const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+      const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+      const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
+      if (!r) { recipesScreen = "list"; renderRecipesScreen(); return; }
+      title.textContent = "Edytuj przepis";
+      content.innerHTML =
+        '<div class="recipe-field-label">Nazwa przepisu</div>' +
+        `<input type="text" id="new-recipe-name" value="${escapeHtml(r.name)}">` +
+        '<div class="recipe-field-label">Zdjęcie / screen (opcjonalnie, tylko podgląd)</div>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">Wybierz zdjęcie' +
+        '<input type="file" accept="image/*" style="display:none" onchange="handleRecipeImageUpload(event)"></label></div>' +
+        `<img id="new-recipe-image-preview" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin-top:8px;${r.image ? "display:block;" : "display:none;"}" ${r.image ? `src="${r.image}"` : ""}>` +
+        '<div class="recipe-field-label">Wklej tekst z Worda / Google Docs (opcjonalnie)</div>' +
+        '<textarea id="new-recipe-pasted" rows="3" placeholder="Wklej skopiowany tekst przepisu..."></textarea>' +
+        '<div class="recipe-file-row"><label class="recipe-file-btn">...albo wgraj plik .docx' +
+        '<input type="file" accept=".docx" style="display:none" onchange="handleRecipeDocxUpload(event)"></label>' +
+        '<button type="button" class="recipe-file-btn" onclick="splitPastedIntoIngredients()">Rozbij na składniki ↓</button></div>' +
+        '<div class="recipe-field-label">Składniki (każdy w osobnej linii)</div>' +
+        `<textarea id="new-recipe-ingredients" rows="6">${escapeHtml((r.ingredients || []).join("\n"))}</textarea>` +
+        '<div class="recipe-field-label">Sposób przygotowania (opcjonalnie)</div>' +
+        `<textarea id="new-recipe-instructions" rows="4">${escapeHtml(r.instructions || "")}</textarea>` +
+        '<button type="button" class="recipe-form-btn" onclick="submitEditRecipe()">Zapisz zmiany</button>';
+      return;
+    }
+
     if (recipesScreen === "detail") {
       const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
       const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
@@ -4082,6 +4177,30 @@
         html += `<div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${escapeHtml(r.instructions)}</div>`;
       }
       content.innerHTML = html;
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "recipe-form-btn";
+      editBtn.style.marginTop = "18px";
+      editBtn.textContent = "Edytuj przepis";
+      editBtn.addEventListener("click", () => {
+        recipesPendingImage = r.image || null;
+        recipesScreen = "editRecipe";
+        renderRecipesScreen();
+      });
+      content.appendChild(editBtn);
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "recipe-form-btn";
+      delBtn.style.marginTop = "10px";
+      delBtn.style.background = "rgba(255,255,255,0.1)";
+      delBtn.style.color = "#f5f7fa";
+      delBtn.textContent = "Usuń przepis";
+      delBtn.addEventListener("click", () => {
+        deleteRecipe(cat.id, sc.id, r.id);
+        recipesScreen = "list";
+        renderRecipesScreen();
+      });
+      content.appendChild(delBtn);
       return;
     }
 
@@ -4132,7 +4251,7 @@
       clearBtn.style.background = "rgba(255,255,255,0.1)";
       clearBtn.style.color = "#f5f7fa";
       clearBtn.textContent = "Wyczyść listę";
-      clearBtn.addEventListener("click", () => { localStorage.removeItem("shoppingList"); renderRecipesScreen(); });
+      clearBtn.addEventListener("click", () => { saveShoppingListRemote([]); renderRecipesScreen(); });
       content.appendChild(clearBtn);
       return;
     }
@@ -4239,6 +4358,27 @@
     renderRecipesScreen();
   }
 
+  function submitEditRecipe() {
+    const name = document.getElementById("new-recipe-name").value.trim();
+    const ingredientsRaw = document.getElementById("new-recipe-ingredients").value;
+    const instructions = document.getElementById("new-recipe-instructions").value.trim();
+    if (!name) return;
+    const ingredients = ingredientsRaw.split("\n").map(l => l.trim()).filter(Boolean);
+    const data = getRecipesData();
+    const cat = data.categories.find(c => c.id === recipesCurrentCategoryId);
+    const sc = cat && cat.subcategories.find(s => s.id === recipesCurrentSubcategoryId);
+    const r = sc && sc.recipes.find(rr => rr.id === recipesCurrentRecipeId);
+    if (!r) return;
+    r.name = name;
+    r.ingredients = ingredients;
+    r.instructions = instructions;
+    r.image = recipesPendingImage || null;
+    saveRecipesData(data);
+    recipesPendingImage = null;
+    recipesScreen = "detail";
+    renderRecipesScreen();
+  }
+
   function deleteRecipe(catId, scId, recipeId) {
     const data = getRecipesData();
     const cat = data.categories.find(c => c.id === catId);
@@ -4258,18 +4398,13 @@
         if (!seen.has(key)) { seen.add(key); items.push({ text: ing, checked: false }); }
       });
     });
-    localStorage.setItem("shoppingList", JSON.stringify(items));
-  }
-
-  function getShoppingList() {
-    try { return JSON.parse(localStorage.getItem("shoppingList")) || []; }
-    catch (e) { return []; }
+    saveShoppingListRemote(items);
   }
 
   function toggleShoppingItem(index) {
-    const list = getShoppingList();
-    if (list[index]) list[index].checked = !list[index].checked;
-    localStorage.setItem("shoppingList", JSON.stringify(list));
+    const list = getShoppingList().slice();
+    if (list[index]) list[index] = { ...list[index], checked: !list[index].checked };
+    saveShoppingListRemote(list);
     renderRecipesScreen();
   }
 
@@ -4281,6 +4416,8 @@
   connectTodoSync();
   connectSupplementsSync();
   connectCalendarSync();
+  connectRecipesSync();
+  connectShoppingListSync();
   renderMenu();
   updateClock();
   setInterval(updateClock, 1000);
