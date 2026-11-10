@@ -70,9 +70,25 @@ export function sendTestNotification(topic) {
   return sender({ topic, title: "Dashboard domowy", message: "Działa! Tak będą wyglądać powiadomienia o zmianach w grupie.", tags: ["tada"] });
 }
 
-/** Link otwierajacy aplikacje ntfy na Androidzie i subskrybujacy temat. */
-export function ntfySubscribeLink(topic) {
-  return `ntfy://ntfy.sh/${encodeURIComponent(topic)}?display=${encodeURIComponent("Dashboard domowy")}`;
+export const NTFY_PLAY_URL = "https://play.google.com/store/apps/details?id=io.heckel.ntfy";
+export const NTFY_APPSTORE_URL = "https://apps.apple.com/app/ntfy/id1625396347";
+
+/** Na czym dziala strona — od tego zalezy, jak wlaczyc powiadomienia. */
+export function detectPlatform(ua = (typeof navigator !== "undefined" ? navigator.userAgent : "")) {
+  if (/android/i.test(ua)) return "android";
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && typeof navigator !== "undefined" && navigator.maxTouchPoints > 1)) return "ios";
+  return "desktop";
+}
+
+/** Link subskrybujacy temat w aplikacji ntfy na Androidzie.
+ *  "intent://" zamiast "ntfy://": Chrome i przegladarki w trybie kiosku czesto blokuja
+ *  nieznane schematy, a intent dziala zawsze i bez aplikacji otwiera sklep Play. */
+export function ntfySubscribeLink(topic, platform = detectPlatform()) {
+  const path = `ntfy.sh/${encodeURIComponent(topic)}?display=${encodeURIComponent("Dashboard domowy")}`;
+  if (platform === "android") {
+    return `intent://${path}#Intent;scheme=ntfy;package=io.heckel.ntfy;S.browser_fallback_url=${encodeURIComponent(NTFY_PLAY_URL)};end`;
+  }
+  return `ntfy://${path}`;
 }
 
 // zanim strona sie zamknie, wyslij zebrane zmiany
