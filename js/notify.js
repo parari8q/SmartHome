@@ -20,6 +20,8 @@ export const CATEGORIES = {
 };
 
 const BATCH_MS = 2500;
+// 4 = "wysoki": na Androidzie powiadomienie wyskakuje u gory ekranu (przy 3 laduje tylko na liscie)
+const PRIORITY = 4;
 const pending = new Map(); // kategoria -> { items: [], timer }
 let sender = (payload) => fetch(NTFY_SERVER + "/", { method: "POST", body: JSON.stringify(payload) }); // text/plain = bez preflight CORS
 
@@ -61,13 +63,14 @@ async function flush(category) {
     title: `${myName(group)} ${cat.verb}`,
     message,
     tags: [cat.tag],
+    priority: PRIORITY,
     click: location.origin + location.pathname,
   }).catch((err) => console.warn("Powiadomienie nie wysłane:", err))));
 }
 
 /** Testowe powiadomienie na wlasny telefon (Ustawienia -> Powiadomienia). */
 export function sendTestNotification(topic) {
-  return sender({ topic, title: "Dashboard domowy", message: "Działa! Tak będą wyglądać powiadomienia o zmianach w grupie.", tags: ["tada"] });
+  return sender({ topic, title: "Dashboard domowy", message: "Działa! Tak będą wyglądać powiadomienia o zmianach w grupie.", tags: ["tada"], priority: PRIORITY });
 }
 
 export const NTFY_PLAY_URL = "https://play.google.com/store/apps/details?id=io.heckel.ntfy";
