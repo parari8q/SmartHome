@@ -44,7 +44,8 @@ function set(root, parts, value) {
 export function startFakeFirebase(port = 0) {
   let data = null;
   let failMode = "off";
-  let authRequired = false; // true = "prywatna baza": tylko tokeny zaczynajace sie od "tok-"
+  let authRequired = false;
+  let readOnly = false; // symulacja blednej reguly ".write" // true = "prywatna baza": tylko tokeny zaczynajace sie od "tok-"
   const listeners = new Set(); // { parts, res }
 
   const send = (res, event, payload) => res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
@@ -76,6 +77,7 @@ export function startFakeFirebase(port = 0) {
     if (url.pathname === "/__dump") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify(data)); }
     if (url.pathname === "/__auth") {
       authRequired = url.searchParams.get("required") === "1";
+      readOnly = url.searchParams.get("readonly") === "1";
       // jak prawdziwy Firebase: po zmianie regul otwarte strumienie bez prawa odczytu dostaja "cancel"
       if (authRequired) for (const l of [...listeners]) { send(l.res, "cancel", null); l.res.end(); listeners.delete(l); }
       return res.end(String(authRequired));
@@ -85,6 +87,10 @@ export function startFakeFirebase(port = 0) {
     if (!url.pathname.endsWith(".json")) return res.writeHead(404).end();
     const parts = split(url.pathname.slice(0, -5));
     if (authRequired && !(url.searchParams.get("auth") || "").startsWith("tok-")) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      return res.end('{"error":"Permission denied"}');
+    }
+    if (readOnly && req.method !== "GET") {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end('{"error":"Permission denied"}');
     }
