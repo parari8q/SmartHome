@@ -92,3 +92,24 @@ test("wyczyszczona lista nie wraca ze starych danych przy kolejnym logowaniu", a
   await openFromMenu(page, "Zadania");
   await expect(view(page, "todo").getByText("Nie masz jeszcze żadnej listy")).toBeVisible();
 });
+
+test("kilka kart naraz: jedno połączenie na kartę, wszystkie się łączą (limit przeglądarki)", async ({ browser, request }) => {
+  // osobne konto, zeby liczyc tylko polaczenia z tego testu
+  const mine = async () => (await (await request.get(DB + "/__streams")).json()).filter((s) => s === "users/uid-karty").length;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" });
+  const first = await context.newPage();
+  await signIn(first, "karty@example.com");
+  const tabs = [first];
+  for (let i = 0; i < 3; i++) {
+    const p = await context.newPage(); // ta sama przegladarka -> wspolny limit polaczen
+    await openApp(p); // juz zalogowane (wspolny localStorage); czeka na status "polaczono"
+    tabs.push(p);
+  }
+  await expect.poll(mine).toBe(4); // 4 karty = 4 polaczenia (wczesniej bylo 20, a limit to 6)
+
+  await openFromMenu(tabs[3], "Zakupy");
+  await tabs[3].fill("#shopping-input", "Masło");
+  await tabs[3].keyboard.press("Enter");
+  for (const p of tabs.slice(0, 3)) await expect(p.locator("#home-shopping")).toContainText("1 pozycja");
+  await context.close();
+});

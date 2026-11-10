@@ -75,6 +75,7 @@ export function startFakeFirebase(port = 0) {
     for await (const chunk of req) body += chunk;
 
     if (url.pathname === "/__reset") { data = clean(body ? JSON.parse(body) : null); for (const l of listeners) send(l.res, "put", { path: "/", data: get(data, l.parts) }); return res.end("ok"); }
+    if (url.pathname === "/__streams") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify([...listeners].map((l) => l.parts.join("/") + (url.searchParams.get("verbose") ? "?" + l.auth : "")))); }
     if (url.pathname === "/__dump") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify(data)); }
     if (url.pathname === "/__auth") {
       authRequired = url.searchParams.get("required") === "1";
@@ -108,11 +109,11 @@ export function startFakeFirebase(port = 0) {
 
     if (req.method === "GET" && (req.headers.accept || "").includes("text/event-stream")) {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-      const l = { parts, res };
+      const l = { parts, res, auth: url.searchParams.get("auth") || "" };
       listeners.add(l);
       send(res, "put", { path: "/", data: get(data, parts) });
       const ka = setInterval(() => send(res, "keep-alive", null), 15000);
-      req.on("close", () => { clearInterval(ka); listeners.delete(l); });
+      res.on("close", () => { clearInterval(ka); listeners.delete(l); }); // res, nie req: req "close" nie oznacza rozlaczenia
       return;
     }
 
