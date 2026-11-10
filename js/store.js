@@ -9,6 +9,7 @@ import { DB_PATHS, FIREBASE_DB_URL, FIREBASE_API_KEY } from "./config.js";
 import { SyncedDoc, combineStatus } from "./lib/firebase-sync.js";
 import { FirebaseAuth } from "./lib/auth.js";
 import { migrateLegacyData } from "./lib/migrate.js";
+import { createSharedEventSource } from "./lib/shared-stream.js";
 import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
 import { normalizeSuppLog } from "./logic/supplements.js";
@@ -25,8 +26,12 @@ function authRequired() {
   authRequiredTimer = setTimeout(() => { for (const fn of authRequiredListeners) fn(); }, 50);
 }
 
+// jedno polaczenie z cala przestrzenia konta zamiast 5 (limit polaczen przegladarki)
+const SharedEventSource = createSharedEventSource({ getBase: () => (activeUid ? `users/${activeUid}` : null) });
+
 const make = (path, normalize) => new SyncedDoc({
   baseUrl: FIREBASE_DB_URL, path, normalize,
+  EventSourceImpl: SharedEventSource,
   getAuthToken: (opts) => auth.getToken(opts),
   onAuthRequired: authRequired,
 });
