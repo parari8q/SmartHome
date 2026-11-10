@@ -2,7 +2,7 @@
 
 import { store, auth, currentSpace, onSpaceChange, refreshSpace } from "../store.js";
 import * as G from "../groups.js";
-import { CATEGORIES, ntfySubscribeLink, sendTestNotification } from "../notify.js";
+import { CATEGORIES, ntfySubscribeLink, sendTestNotification, detectPlatform, NTFY_PLAY_URL, NTFY_APPSTORE_URL } from "../notify.js";
 import { h, clear, ICONS, confirmDialog, promptDialog, toast } from "../lib/dom.js";
 import { registerView, openView } from "./router.js";
 import { getLayout, setLayout } from "./layout.js";
@@ -119,13 +119,7 @@ function groupSection() {
     h("div", { class: "section-label" }, "Powiadomienia na telefon"),
     me ? h("div", { class: "card", id: "notify-card" },
       h("p", {}, "Gdy ktoś z grupy coś doda, dostaniesz powiadomienie przez darmową aplikację ntfy, nawet gdy dashboard jest zamknięty. O swoich zmianach powiadomień nie dostajesz."),
-      h("ol", { class: "steps-mini" },
-        h("li", {}, "Zainstaluj ntfy: ",
-          h("a", { href: "https://play.google.com/store/apps/details?id=io.heckel.ntfy", target: "_blank", rel: "noopener" }, "Android"), " · ",
-          h("a", { href: "https://apps.apple.com/app/ntfy/id1625396347", target: "_blank", rel: "noopener" }, "iPhone")),
-        h("li", {}, "Na telefonie otwórz te Ustawienia i kliknij ",
-          h("a", { class: "btn btn-primary btn-sm", id: "ntfy-subscribe", href: ntfySubscribeLink(me.ntfyTopic) }, "Włącz w ntfy")),
-        h("li", {}, "Na iPhonie (albo gdy przycisk nie działa): w ntfy kliknij + i wpisz temat ", h("code", { id: "ntfy-topic" }, me.ntfyTopic))),
+      ntfySteps(me.ntfyTopic),
       h("div", { class: "field-label" }, "Powiadamiaj mnie o:"),
       h("div", { class: "notify-prefs" }, Object.entries(CATEGORIES).map(([key, c]) =>
         h("label", { class: "check-row row" },
@@ -136,6 +130,39 @@ function groupSection() {
         onclick: () => sendTestNotification(me.ntfyTopic).then(() => toast("Wysłano — sprawdź telefon"), () => toast("Nie udało się wysłać")) }, "Wyślij testowe powiadomienie"))
       : null,
   ];
+}
+
+function copyButton(text, label = "Kopiuj temat") {
+  return h("button", { type: "button", class: "btn btn-ghost btn-sm", id: "ntfy-copy", onclick: async () => {
+    try { await navigator.clipboard.writeText(text); toast("Skopiowano — wklej w aplikacji ntfy"); }
+    catch { toast("Zaznacz temat i skopiuj ręcznie"); }
+  } }, label);
+}
+
+/** Instrukcja wlaczenia powiadomien dopasowana do urzadzenia. */
+function ntfySteps(topic) {
+  const platform = detectPlatform();
+  const topicBox = h("div", { class: "invite" }, h("code", { id: "ntfy-topic" }, topic), copyButton(topic));
+  const manual = h("li", {}, "Albo ręcznie: w ntfy kliknij ", h("b", {}, "+"), ", wklej temat i kliknij ", h("b", {}, "Subscribe"), " (serwer zostaw domyślny ntfy.sh).", topicBox);
+
+  if (platform === "android") {
+    return h("ol", { class: "steps-mini", id: "ntfy-steps", dataset: { platform } },
+      h("li", {}, "Zainstaluj ", h("a", { href: NTFY_PLAY_URL, target: "_blank", rel: "noopener" }, "ntfy ze sklepu Play"), "."),
+      h("li", {}, "Kliknij ", h("a", { class: "btn btn-primary btn-sm", id: "ntfy-subscribe", href: ntfySubscribeLink(topic, platform) }, "Włącz w ntfy"),
+        " — otworzy się aplikacja ntfy z gotowym tematem."),
+      manual);
+  }
+  if (platform === "ios") {
+    return h("ol", { class: "steps-mini", id: "ntfy-steps", dataset: { platform } },
+      h("li", {}, "Zainstaluj ", h("a", { href: NTFY_APPSTORE_URL, target: "_blank", rel: "noopener" }, "ntfy z App Store"), " i zezwól na powiadomienia."),
+      h("li", {}, "W ntfy kliknij ", h("b", {}, "+"), ", wklej temat i kliknij ", h("b", {}, "Subscribe"), ":", topicBox));
+  }
+  return h("ol", { class: "steps-mini", id: "ntfy-steps", dataset: { platform } },
+    h("li", {}, "Zainstaluj na telefonie ntfy: ",
+      h("a", { href: NTFY_PLAY_URL, target: "_blank", rel: "noopener" }, "Android"), " · ",
+      h("a", { href: NTFY_APPSTORE_URL, target: "_blank", rel: "noopener" }, "iPhone"), "."),
+    h("li", {}, "Najprościej: otwórz dashboard ", h("b", {}, "na telefonie"), " → Ustawienia → „Włącz w ntfy”."),
+    h("li", {}, "Albo w aplikacji ntfy kliknij ", h("b", {}, "+"), ", wpisz ten temat i kliknij ", h("b", {}, "Subscribe"), ":", topicBox));
 }
 
 async function askJoin(prefill = "") {

@@ -18,7 +18,7 @@ test.beforeEach(async ({ request }) => {
 });
 
 async function device(browser, phone = false) {
-  const ctx = await newContext(browser, { ...(phone ? devices["Pixel 7"] : { viewport: { width: 1280, height: 800 } }), locale: "pl-PL", timezoneId: "Europe/Warsaw" });
+  const ctx = await newContext(browser, { ...(phone ? devices["Pixel 7"] : { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } }), locale: "pl-PL", timezoneId: "Europe/Warsaw" });
   const page = await ctx.newPage();
   page.ntfy = [];
   await page.route(/ntfy\.sh/, async (r) => { page.ntfy.push(JSON.parse(r.request().postData())); await r.fulfill({ json: { id: "x" } }); });
@@ -93,12 +93,19 @@ test("powiadomienia: dostają je pozostałe osoby (nie autor), zgrupowane, zgodn
   const code = await createGroup(ja);
   const jaTopic = (await ja.locator("#ntfy-topic").textContent()).trim();
   expect(jaTopic).toMatch(/^dashboard-[a-z0-9]{20}$/);
-  await expect(ja.locator("#ntfy-subscribe")).toHaveAttribute("href", `ntfy://ntfy.sh/${jaTopic}?display=Dashboard%20domowy`);
+  // komputer: bez przycisku (nie ma tu aplikacji), instrukcja dla telefonu + temat do skopiowania
+  await expect(ja.locator("#ntfy-steps")).toHaveAttribute("data-platform", "desktop");
+  await expect(ja.locator("#ntfy-subscribe")).toHaveCount(0);
+  await expect(ja.locator("#ntfy-copy")).toBeVisible();
 
   await signIn(ona, "ona@example.com");
   await joinGroup(ona, code, "Ania");
   await expect(ona.locator("#group-members .member")).toHaveCount(2);
   const onaTopic = (await ona.locator("#ntfy-topic").textContent()).trim();
+  // telefon z Androidem: link "intent://" (dziala tez w kiosku; bez aplikacji otwiera sklep Play)
+  await expect(ona.locator("#ntfy-steps")).toHaveAttribute("data-platform", "android");
+  await expect(ona.locator("#ntfy-subscribe")).toHaveAttribute("href",
+    `intent://ntfy.sh/${onaTopic}?display=Dashboard%20domowy#Intent;scheme=ntfy;package=io.heckel.ntfy;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dio.heckel.ntfy;end`);
 
   // Ania dodaje 2 produkty szybko po sobie -> jedno powiadomienie dla Kuby
   await openFromMenu(ona, "Zakupy");
