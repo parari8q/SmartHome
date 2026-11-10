@@ -1,8 +1,14 @@
-// Wszystkie wspolne dane (synchronizowane miedzy urzadzeniami) w jednym miejscu.
+// Wszystkie dane synchronizowane miedzy urzadzeniami w jednym miejscu.
+//
+// Zalogowany uzytkownik ma WLASNA przestrzen w bazie: users/<uid>/todo_lists itd.
+// Wszystkie urzadzenia zalogowane na to samo konto widza te same dane;
+// inne konto = inne dane. Bez logowania (tylko przy otwartej bazie) uzywane
+// jest stare, wspolne miejsce w glownym katalogu bazy.
 
 import { DB_PATHS, FIREBASE_DB_URL, FIREBASE_API_KEY } from "./config.js";
 import { SyncedDoc, combineStatus } from "./lib/firebase-sync.js";
 import { FirebaseAuth } from "./lib/auth.js";
+import { migrateLegacyData } from "./lib/migrate.js";
 import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
 import { normalizeSuppLog } from "./logic/supplements.js";
@@ -33,8 +39,41 @@ export const store = {
   shopping: make(DB_PATHS.shopping, normalizeShopping),
 };
 
+export function pathFor(key, uid) {
+  return uid ? `users/${uid}/${DB_PATHS[key]}` : DB_PATHS[key];
+}
+
+let activeUid; // undefined = jeszcze nie uruchomiono
+
+/** Przelacz dane na przestrzen danego konta (albo stara wspolna, gdy null). */
+async function activate(uid) {
+  activeUid = uid;
+  if (uid && localStorage.getItem("migrated_" + uid) !== "1") {
+    try {
+      const token = await auth.getToken();
+      const r = await migrateLegacyData({ baseUrl: FIREBASE_DB_URL, uid, token, paths: DB_PATHS });
+      if (r.status === "done" || r.status === "already") localStorage.setItem("migrated_" + uid, "1");
+      if (r.status === "done" && r.copied.length) console.info("Przeniesiono dotychczasowe dane na konto:", r.copied);
+    } catch (err) {
+      console.warn("Przenoszenie danych nie powiodło się (spróbuję następnym razem):", err);
+    }
+  }
+  if (activeUid !== uid) return; // w miedzyczasie zmienil sie uzytkownik
+  for (const [key, doc] of Object.entries(store)) {
+    const path = pathFor(key, uid);
+    if (doc.path.join("/") === path) { doc.connect(); doc.retryNow(); }
+    else doc.setPath(path);
+  }
+}
+
+export function currentUid() { return activeUid || null; }
+
 export function connectAll() {
-  for (const doc of Object.values(store)) doc.connect();
+  activate(auth.uid);
+  auth.onChange((session) => {
+    const uid = session?.uid || null;
+    if (uid !== activeUid) activate(uid);
+  });
 
   const reconnect = () => { for (const doc of Object.values(store)) doc.ensureConnected(); };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnect(); });

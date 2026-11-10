@@ -1,16 +1,13 @@
 // Prywatna baza: dostep tylko po zalogowaniu, dalej wspolne dane na wszystkich urzadzeniach.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login as loginAs } from "./helpers.js";
 
 test.beforeEach(async ({ request }) => {
   await resetDb(request, { todo_lists: [{ id: "l1", name: "Prywatna lista", tasks: [{ id: "t1", text: "Sekret", done: false }] }] });
 });
 
-async function login(page, password = "dobrehaslo") {
-  await page.fill("#login-email", "ja@example.com");
-  await page.fill("#login-password", password);
-  await page.click("#login-submit");
-}
+const login = (page, password = "dobrehaslo") => loginAs(page, "ja@example.com", password);
+const userDb = async (request) => (await dumpDb(request))?.users?.["uid-ja"];
 
 test("otwarta baza (tak jak teraz): nie trzeba się logować", async ({ page }) => {
   await openApp(page);
@@ -36,7 +33,7 @@ test("prywatna baza: bez logowania brak danych, po zalogowaniu wszystko działa 
   await openFromMenu(page, "Zadania");
   await page.fill("#todo-input", "Druga lista");
   await page.keyboard.press("Enter");
-  await expect.poll(async () => (await dumpDb(request)).todo_lists.length).toBe(2);
+  await expect.poll(async () => (await userDb(request)).todo_lists.length).toBe(2);
 
   // po przeladowaniu nie trzeba logowac sie ponownie
   await page.reload();
@@ -73,7 +70,7 @@ test("zmiana bazy na prywatną w trakcie: urządzenie pokazuje logowanie, a po n
   await expect(view(page, "todo").locator(".row", { hasText: "Prywatna lista" })).toBeVisible();
   await page.fill("#todo-input", "Po zalogowaniu");
   await page.keyboard.press("Enter");
-  await expect.poll(async () => (await dumpDb(request)).todo_lists.map((l) => l.name)).toContain("Po zalogowaniu");
+  await expect.poll(async () => (await userDb(request)).todo_lists.map((l) => l.name)).toContain("Po zalogowaniu");
 });
 
 test("ustawienia: konto i wylogowanie", async ({ page, request }) => {
@@ -99,7 +96,7 @@ test("niezalogowany dodaje zadanie: pojawia się logowanie, a po nim zadanie zap
   await expect(page.locator("#login")).toBeVisible();
   await expect(view(page, "todo").locator(".row", { hasText: "Nie zgub mnie" })).toBeVisible();
   await login(page);
-  await expect.poll(async () => (await dumpDb(request)).todo_lists.map((l) => l.name)).toContain("Nie zgub mnie");
+  await expect.poll(async () => (await userDb(request))?.todo_lists?.map((l) => l.name)).toContain("Nie zgub mnie");
 });
 
 test("zalogowany, ale reguła .write błędna: jasny komunikat zamiast ciągłego logowania", async ({ page, request }) => {
