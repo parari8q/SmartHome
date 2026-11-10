@@ -33,10 +33,10 @@ test("zadanie dodane na komputerze pojawia się na telefonie bez odświeżania (
 
 test("ekran główny na drugim urządzeniu aktualizuje się na żywo", async ({ browser }) => {
   const { pc, phone } = await twoDevices(browser);
-  await expect(phone.locator("#home-supp")).toContainText("Żelazo");
-  await openFromMenu(pc, "Witaminy");
-  await pc.locator('#view-supplements .day[data-date="2026-11-10"]').click();
-  await expect(phone.locator("#home-supp")).toHaveCount(0);
+  await openFromMenu(pc, "Zakupy");
+  await pc.fill("#shopping-input", "Pomidory");
+  await pc.keyboard.press("Enter");
+  await expect(phone.locator("#home-shopping")).toContainText("1 pozycja");
 
   await openFromMenu(pc, "Kalendarz");
   await pc.locator('#view-calendar .day[data-date="2026-11-10"]').click();

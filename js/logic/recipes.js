@@ -3,6 +3,10 @@
 // (baza: "recipes_data")   Lista zakupow: [{ text, checked }] (baza: "shopping_list")
 
 import { asArray, clone, uid } from "../lib/util.js";
+import { instructionsToSteps, isIngredientHeader } from "./recipe-parser.js";
+
+/** "Na ciasto:" — naglowek grupy skladnikow. */
+export const isHeader = isIngredientHeader;
 
 export const DEFAULT_SUBCATEGORIES = ["Śniadanie", "Obiad", "Kolacja", "Deser"];
 
@@ -20,14 +24,24 @@ export function normalizeRecipes(raw) {
             name: String(sc.name ?? ""),
             recipes: asArray(sc.recipes)
               .filter((r) => r && typeof r === "object")
-              .map((r) => ({
-                ...r,
-                id: String(r.id || uid()),
-                name: String(r.name ?? ""),
-                ingredients: asArray(r.ingredients).map(String),
-                instructions: r.instructions ? String(r.instructions) : "",
-                image: r.image || null,
-              })),
+              .map((r) => {
+                const steps = asArray(r.steps).map(String).filter(Boolean);
+                return {
+                  ...r,
+                  id: String(r.id || uid()),
+                  name: String(r.name ?? ""),
+                  ingredients: asArray(r.ingredients).map(String),
+                  // stare przepisy mialy jeden tekst "instructions" — pokazujemy go jako kroki
+                  steps: steps.length ? steps : instructionsToSteps(r.instructions ? String(r.instructions) : ""),
+                  instructions: r.instructions ? String(r.instructions) : "",
+                  servings: r.servings ? String(r.servings) : "",
+                  time: r.time ? String(r.time) : "",
+                  notes: r.notes ? String(r.notes) : "",
+                  source: r.source ? String(r.source) : "",
+                  photo: r.photo || null,   // znacznik czasu zdjecia w osobnym miejscu bazy
+                  image: r.image || null,   // stare zdjecie zapisane w srodku przepisu
+                };
+              }),
           })),
       })),
   };
@@ -94,17 +108,51 @@ export function splitIntoIngredients(text) {
     .filter(Boolean);
 }
 
-export function addRecipe(data, catId, scId, { name, ingredients, instructions, image }, id = uid(), now = Date.now()) {
+const RECIPE_FIELDS = ["name", "ingredients", "steps", "servings", "time", "notes", "source", "photo"];
+
+function pickFields(fields) {
+  const out = {};
+  for (const k of RECIPE_FIELDS) if (k in fields) out[k] = fields[k];
+  if (typeof out.name === "string") out.name = out.name.trim();
+  return out;
+}
+
+export function addRecipe(data, catId, scId, fields, id = uid(), now = Date.now()) {
   const next = clone(data);
   const sc = findSubcategory(next, catId, scId);
-  if (sc) sc.recipes.push({ id, name: name.trim(), ingredients, instructions: instructions || "", image: image || null, createdAt: now });
+  if (sc) sc.recipes.push({ id, ingredients: [], steps: [], ...pickFields(fields), createdAt: now, updatedAt: now });
   return next;
 }
 
-export function updateRecipe(data, catId, scId, recipeId, fields) {
+/** Pierwsza kategoria/podkategoria; gdy nie ma zadnej — tworzy "Moje przepisy",
+ *  zeby mozna bylo od razu zapisac przepis bez klikania po kategoriach. */
+export function ensureDefaultTarget(data, makeId = uid) {
+  let next = data;
+  if (!next.categories.length) next = addCategory(next, "Moje przepisy", makeId);
+  const cat = next.categories[0];
+  if (!cat.subcategories.length) next = addSubcategory(next, cat.id, "Ogólne", makeId());
+  const c = next.categories[0];
+  return { data: next, catId: c.id, scId: c.subcategories[0].id };
+}
+
+export function searchRecipes(data, query) {
+  const q = String(query || "").trim().toLocaleLowerCase("pl");
+  if (!q) return [];
+  const words = q.split(/\s+/);
+  return allRecipes(data).filter((r) => {
+    const hay = [r.name, ...r.ingredients, r.label].join(" ").toLocaleLowerCase("pl");
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+export function updateRecipe(data, catId, scId, recipeId, fields, now = Date.now()) {
   const next = clone(data);
   const r = findRecipe(next, catId, scId, recipeId);
-  if (r) Object.assign(r, fields, { name: (fields.name ?? r.name).trim() });
+  if (r) {
+    Object.assign(r, pickFields(fields), { updatedAt: now });
+    if ("steps" in fields) r.instructions = null; // zastapione przez kroki
+    if ("image" in fields) r.image = fields.image || null;
+  }
   return next;
 }
 
@@ -152,6 +200,7 @@ export function buildShoppingList(recipes, selectedIds) {
   for (const r of recipes) {
     if (!selectedIds.has(r.id)) continue;
     for (const ing of r.ingredients) {
+      if (isIngredientHeader(ing)) continue; // "Na ciasto:" to nie produkt
       const key = ing.trim().toLocaleLowerCase("pl");
       if (!key || seen.has(key)) continue;
       seen.add(key);

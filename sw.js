@@ -3,7 +3,7 @@
 // wiec po wgraniu zmian na GitHuba od razu laduje sie nowa wersja.
 // Dane z Firebase i API (pogoda, Spotify) nigdy nie sa tu zapamietywane.
 
-const CACHE = "dashboard-v2";
+const CACHE = "dashboard-v3";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -17,6 +17,27 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
+
+  // "Udostepnij" z galerii telefonu (manifest.json -> share_target): zapisujemy
+  // pliki w schowku i przekierowujemy do aplikacji, ktora otworzy nowy przepis.
+  if (req.method === "POST" && url.origin === self.location.origin && url.pathname.endsWith("/share-target")) {
+    event.respondWith((async () => {
+      try {
+        const form = await req.formData();
+        await caches.delete("share-inbox");
+        const inbox = await caches.open("share-inbox");
+        let i = 0;
+        for (const f of form.getAll("images")) {
+          if (f && typeof f === "object" && f.size) await inbox.put(new URL(`share-inbox/img-${i++}`, self.registration.scope).href, new Response(f, { headers: { "Content-Type": f.type || "image/jpeg" } }));
+        }
+        const text = [form.get("title"), form.get("text"), form.get("url")].filter(Boolean).join("\n");
+        if (text) await inbox.put(new URL("share-inbox/text", self.registration.scope).href, new Response(text));
+      } catch (e) { /* i tak otwieramy aplikacje */ }
+      return Response.redirect(new URL("dashboard.html?shared=1", self.registration.scope).href, 303);
+    })());
+    return;
+  }
+
   if (req.method !== "GET" || url.origin !== self.location.origin) return; // tylko pliki tej strony
 
   event.respondWith((async () => {

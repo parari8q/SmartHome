@@ -7,7 +7,7 @@ import { registerView } from "./router.js";
 import { getLayout, setLayout } from "./layout.js";
 
 let shell;
-const NAMES = { todo: "Zadania", calendar: "Kalendarz", supplements: "Witaminy", recipes: "Przepisy", shopping: "Lista zakupów" };
+const NAMES = { todo: "Zadania", calendar: "Kalendarz", recipes: "Przepisy", shopping: "Lista zakupów" };
 const CONN = { live: "połączono", connecting: "łączenie…", offline: "brak połączenia", error: "błąd", auth: "brak dostępu" };
 
 function render() {
@@ -39,7 +39,7 @@ function render() {
     h("div", { class: "button-row" },
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => { for (const d of Object.values(store)) d.connect(); setTimeout(render, 800); } }, "Połącz ponownie"),
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => location.reload() }, "Przeładuj aplikację")),
-    h("p", { class: "hint" }, "Zadania, kalendarz, witaminy, przepisy i zakupy należą do konta: każde urządzenie zalogowane na to samo konto widzi je na żywo, a inne konto ma swoje, osobne dane. Układ ekranu i logowanie do Spotify są osobne dla każdego urządzenia."));
+    h("p", { class: "hint" }, "Zadania, kalendarz, przepisy i zakupy należą do konta: każde urządzenie zalogowane na to samo konto widzi je na żywo, a inne konto ma swoje, osobne dane. Układ ekranu jest osobny dla każdego urządzenia."));
 }
 
 registerView({

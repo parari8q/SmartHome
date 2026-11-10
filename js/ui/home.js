@@ -4,7 +4,6 @@ import { CONFIG } from "../config.js";
 import { store } from "../store.js";
 import { buildWeatherUrl, summarize, themeFor, describeCode } from "../logic/weather.js";
 import { upcomingEvents, relativeDayLabel } from "../logic/calendar.js";
-import { todayReminder, computeStreak } from "../logic/supplements.js";
 import { openCount } from "../logic/todo.js";
 import { h, clear, ICONS } from "../lib/dom.js";
 import { capitalize, plural } from "../lib/util.js";
@@ -93,16 +92,6 @@ function renderToday() {
   if (!panel) return;
   const cards = [];
 
-  const reminder = todayReminder(store.supplements.value);
-  if (store.supplements.loaded && reminder) {
-    const streak = computeStreak(store.supplements.value);
-    cards.push(h("button", { type: "button", class: "today-card reminder", id: "home-supp", style: { "--dose": reminder.color }, onclick: () => openView("supplements") },
-      h("span", { class: "dose-dot" }),
-      h("span", { class: "row-main" }, h("span", { class: "row-title" }, "Dziś: " + reminder.name),
-        h("span", { class: "row-sub" }, streak ? `Passa ${streak} — nie przerwij jej!` : "Odhacz po wzięciu")),
-      h("span", { class: "icon chev", html: ICONS.next })));
-  }
-
   if (store.calendar.loaded) {
     const events = upcomingEvents(store.calendar.value, new Date(), 7, 3);
     cards.push(card("home-events", "calendar", "Najbliższe", () => openView("calendar"),
@@ -158,6 +147,6 @@ export function initHome() {
   setInterval(tickClock, 1000);
   fetchWeather();
   setInterval(fetchWeather, CONFIG.weatherRefreshMinutes * 60000);
-  for (const doc of [store.todo, store.calendar, store.supplements, store.shopping]) doc.subscribe(renderToday);
+  for (const doc of [store.todo, store.calendar, store.shopping]) doc.subscribe(renderToday);
   renderToday();
 }

@@ -95,7 +95,7 @@ export function startFakeFirebase(port = 0) {
     const allowedPerUser = () => {
       const uid = token.startsWith("tok-") ? token.slice(4) : null;
       if (!uid) return false;
-      if (parts[0] === "users" && parts[1] === uid) return true;
+      if ((parts[0] === "users" || parts[0] === "recipe_photos") && parts[1] === uid) return true;
       return req.method === "GET" && uid === perUser.owner && LEGACY.includes(parts[0]); // stare dane: tylko odczyt wlasciciela
     };
     if (perUser ? !allowedPerUser() : (authRequired && !token.startsWith("tok-"))) {

@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as todo from "../../js/logic/todo.js";
 import * as cal from "../../js/logic/calendar.js";
-import * as supp from "../../js/logic/supplements.js";
 import * as rec from "../../js/logic/recipes.js";
 import * as weather from "../../js/logic/weather.js";
 import { escapeHtml, plural, asArray } from "../../js/lib/util.js";
@@ -89,44 +88,6 @@ test("kalendarz: najblizsze wydarzenia i siatka miesiaca", () => {
   assert.equal(grid.filter(Boolean).length, 30);
   assert.equal(cal.relativeDayLabel(0, "2026-11-10"), "Dziś");
   assert.equal(cal.relativeDayLabel(1, "2026-11-11"), "Jutro");
-});
-
-// ---------------------------------------------------------------- witaminy
-
-test("witaminy: passa liczy tylko zaplanowane dni, dzisiejszy brak nie przerywa", () => {
-  const today = new Date(2026, 10, 10); // wtorek (zelazo)
-  const log = { "2026-11-08": true, "2026-11-06": true, "2026-11-05": true }; // nd, pt, czw
-  assert.equal(supp.computeStreak(log, today), 3);
-  assert.equal(supp.computeStreak({ ...log, "2026-11-10": true }, today), 4);
-  // dziura w czwartek 05 -> passa 2
-  assert.equal(supp.computeStreak({ "2026-11-08": true, "2026-11-06": true }, today), 2);
-  assert.equal(supp.computeStreak({}, today), 0);
-});
-
-test("witaminy: stany dni, przypomnienie, nagroda", () => {
-  const today = new Date(2026, 10, 10);
-  assert.equal(supp.dayState({}, new Date(2026, 10, 8), today).missed, true);
-  assert.equal(supp.dayState({}, new Date(2026, 10, 9), today).missed, false); // poniedzialek bez dawki
-  assert.equal(supp.dayState({}, new Date(2026, 10, 12), today).isFuture, true);
-  assert.equal(supp.todayReminder({}, today).name, "Żelazo");
-  assert.equal(supp.todayReminder({ "2026-11-10": true }, today), null);
-  assert.equal(supp.todayReminder({}, new Date(2026, 10, 9)), null);
-  assert.deepEqual([1, 2, 3, 0].map(supp.isRewardStreak), [true, false, true, false]);
-  assert.deepEqual(supp.normalizeSuppLog({ a: true, b: false, c: null }), { a: true });
-  assert.match(supp.streakLabel(1), /1 dzień/);
-  assert.match(supp.streakLabel(5), /5 dni/);
-});
-
-test("witaminy: zdjecia nie powtarzaja sie przed przejsciem calej puli", () => {
-  const photos = ["a", "b", "c"];
-  let shown = [];
-  const picks = [];
-  for (let i = 0; i < 3; i++) { const r = supp.pickUnseen(photos, shown); picks.push(r.pick); shown = r.shown; }
-  assert.deepEqual([...picks].sort(), photos);
-  const r = supp.pickUnseen(photos, shown);
-  assert.ok(photos.includes(r.pick));
-  assert.deepEqual(r.shown, [r.pick]);
-  assert.equal(supp.pickUnseen([], []).pick, null);
 });
 
 // ---------------------------------------------------------------- przepisy
