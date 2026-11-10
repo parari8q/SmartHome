@@ -7,11 +7,10 @@ import { initLayout } from "./ui/layout.js";
 import { initHome, setSyncStatus } from "./ui/home.js";
 import { renderMenu } from "./ui/menu.js";
 import { mountVoice } from "./ui/voice.js";
-import { handleSpotifyRedirect } from "./ui/spotify-view.js";
 import { TEST_MODE } from "./config.js";
+import { importIntoNewRecipe } from "./ui/recipes-view.js";
 import "./ui/todo-view.js";
 import "./ui/calendar-view.js";
-import "./ui/supplements-view.js";
 import "./ui/recipes-view.js";
 import "./ui/settings-view.js";
 
@@ -28,7 +27,6 @@ onAuthRequired(() => showLogin());
 connectAll();
 initHome();
 
-handleSpotifyRedirect().then((loggedIn) => { if (loggedIn) openView("spotify"); });
 
 // --- ekran zawsze wlaczony (tablet/telefon jako ramka na scianie) ---
 async function keepAwake() {
@@ -50,5 +48,29 @@ document.addEventListener("pointerdown", fullscreenOnce);
 if ("serviceWorker" in navigator && !TEST_MODE) {
   navigator.serviceWorker.register("sw.js").catch((err) => console.warn("Service Worker:", err));
 }
+
+// --- "Udostepnij" z galerii telefonu -> nowy przepis (zainstalowana aplikacja na Androidzie) ---
+async function handleSharedFiles() {
+  if (!new URLSearchParams(location.search).has("shared")) return;
+  history.replaceState({}, document.title, location.pathname);
+  try {
+    const cache = await caches.open("share-inbox");
+    const files = [];
+    let text = "";
+    for (const req of await cache.keys()) {
+      const res = await cache.match(req);
+      if (new URL(req.url).pathname.endsWith("/text")) text = await res.text();
+      else { const blob = await res.blob(); files.push(new File([blob], "udostepnione", { type: blob.type || "image/jpeg" })); }
+    }
+    await caches.delete("share-inbox");
+    if (files.length || text.trim()) {
+      importIntoNewRecipe({ files, text });
+      openView("recipes", "form");
+    }
+  } catch (err) {
+    console.warn("Udostępnione pliki:", err);
+  }
+}
+handleSharedFiles();
 
 window.__app = { openView };

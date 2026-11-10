@@ -12,7 +12,6 @@ import { migrateLegacyData } from "./lib/migrate.js";
 import { createSharedEventSource } from "./lib/shared-stream.js";
 import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
-import { normalizeSuppLog } from "./logic/supplements.js";
 import { normalizeRecipes, normalizeShopping } from "./logic/recipes.js";
 
 export const auth = new FirebaseAuth({ apiKey: FIREBASE_API_KEY });
@@ -39,7 +38,6 @@ const make = (path, normalize) => new SyncedDoc({
 export const store = {
   todo: make(DB_PATHS.todo, normalizeTodoLists),
   calendar: make(DB_PATHS.calendar, normalizeCalendar),
-  supplements: make(DB_PATHS.supplements, normalizeSuppLog),
   recipes: make(DB_PATHS.recipes, normalizeRecipes),
   shopping: make(DB_PATHS.shopping, normalizeShopping),
 };

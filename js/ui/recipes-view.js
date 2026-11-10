@@ -1,18 +1,27 @@
-// PRZEPISY — kategorie -> podkategorie -> przepisy, plus lista zakupow.
+// PRZEPISY — szybkie dodawanie (screen/zdjecie/tekst -> automatyczny podzial na
+// skladniki i kroki), zdjecia dan, wyszukiwarka, tryb gotowania, lista zakupow.
 
 import { store } from "../store.js";
 import * as R from "../logic/recipes.js";
+import { parseRecipeText, linesToList, listToLines } from "../logic/recipe-parser.js";
+import { recognizeImages } from "../lib/ocr.js";
+import { getRecipePhoto, saveRecipePhoto, deleteRecipePhoto, compressImage } from "../photos.js";
 import { h, clear, ICONS, iconButton, emptyState, confirmDialog, promptDialog, toast } from "../lib/dom.js";
+import { plural, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
 
 let shell;
 let screen = "categories";
+let entry = "categories";
 let catId = null, scId = null, recipeId = null;
-let pendingImage = null;
 let selection = new Set();
-let entry = "categories"; // ekran, od ktorego otwarto widok
+let searchQuery = "";
+let cooking = false;
+const checked = new Map(); // recipeId -> Set("i3", "s1") odhaczone skladniki/kroki (tylko na tym urzadzeniu)
+let pendingImport = null;   // { files, text } — np. udostepnione z galerii telefonu
 
 const FORM_SCREENS = new Set(["form", "move", "shoppingPick"]);
+const DRAFT_KEY = "recipe_draft";
 const data = () => store.recipes.value;
 const saveRecipes = (next) => store.recipes.set("", next);
 const shopping = () => store.shopping.value;
@@ -24,11 +33,35 @@ function render() {
   if (!shell) return;
   shell.setActions();
   shell.footer.replaceChildren();
-  const fn = SCREENS[screen] || SCREENS.categories;
-  fn();
+  shell.body.classList.toggle("cooking", screen === "detail" && cooking);
+  (SCREENS[screen] || SCREENS.categories)();
 }
 
 const deleteBtn = (label, onClick) => iconButton("trash", label, (e) => { e.stopPropagation(); onClick(); }, "icon-btn icon-btn-subtle");
+
+/** Miniatura zdjecia ladowana w tle. */
+function photoThumb(recipe, cls = "thumb") {
+  const el = h("span", { class: cls + " thumb-empty", html: ICONS.recipes });
+  if (recipe.photo || recipe.image) {
+    getRecipePhoto(recipe).then((src) => { if (src) el.replaceWith(h("img", { class: cls, src, alt: "" })); });
+  }
+  return el;
+}
+
+function recipeRow(r, label) {
+  return h("div", { class: "row row-link recipe-row", role: "button", tabindex: "0", dataset: { recipeId: r.id },
+    onclick: () => { catId = r.catId || catId; scId = r.scId || scId; recipeId = r.id; cooking = false; go("detail"); } },
+    photoThumb(r),
+    h("span", { class: "row-main" }, h("span", { class: "row-title" }, r.name),
+      h("span", { class: "row-sub" }, label || [`${r.ingredients.length} składn.`, r.steps.length ? `${r.steps.length} ${plural(r.steps.length, "krok", "kroki", "kroków")}` : "", r.time].filter(Boolean).join(" · "))),
+    h("span", { class: "icon chev", html: ICONS.next }));
+}
+
+function newRecipe(target = {}) {
+  recipeId = null;
+  if (target.catId) { catId = target.catId; scId = target.scId; }
+  go("form");
+}
 
 const SCREENS = {
   categories() {
@@ -38,15 +71,27 @@ const SCREENS = {
       if (name) saveRecipes(R.addCategory(data(), name));
     }));
     const d = data();
-    clear(shell.body,
+    const results = h("div", { class: "rows", id: "recipe-search-results" });
+    const list = h("div", {});
+    const search = h("input", { type: "search", id: "recipe-search", placeholder: "Szukaj przepisu albo składnika…", value: searchQuery, autocomplete: "off",
+      oninput: () => { searchQuery = search.value; renderSearch(); } });
+
+    function renderSearch() {
+      const found = R.searchRecipes(data(), searchQuery);
+      list.hidden = !!searchQuery.trim();
+      clear(results, searchQuery.trim()
+        ? (found.length ? found.map((r) => recipeRow(r, r.label)) : emptyState("Nic nie znaleziono."))
+        : null);
+    }
+
+    clear(list,
       h("button", { type: "button", class: "card-link", onclick: () => go("shoppingList") },
         h("span", { class: "icon", html: ICONS.cart }),
-        h("span", { class: "row-main" }, h("span", { class: "row-title" }, "Lista zakupów"),
-          h("span", { class: "row-sub" }, shoppingSummary())),
+        h("span", { class: "row-main" }, h("span", { class: "row-title" }, "Lista zakupów"), h("span", { class: "row-sub" }, shoppingSummary())),
         h("span", { class: "icon chev", html: ICONS.next })),
       h("div", { class: "section-label" }, "Kategorie"),
       !store.recipes.loaded ? emptyState("Łączenie z bazą…")
-        : d.categories.length === 0 ? emptyState("Brak kategorii. Dodaj pierwszą przyciskiem +.")
+        : d.categories.length === 0 ? emptyState("Nie masz jeszcze przepisów. Dodaj pierwszy — kategoria utworzy się sama.")
         : h("div", { class: "rows" }, d.categories.map((cat) =>
           h("div", { class: "row row-link", role: "button", tabindex: "0", onclick: () => { catId = cat.id; go("subcategories"); } },
             h("span", { class: "row-title" }, cat.name),
@@ -54,6 +99,12 @@ const SCREENS = {
             deleteBtn("Usuń kategorię " + cat.name, async () => {
               if (await confirmDialog(`Usunąć kategorię „${cat.name}” wraz ze wszystkimi przepisami?`)) saveRecipes(R.deleteCategory(data(), cat.id));
             })))));
+
+    clear(shell.body,
+      h("button", { type: "button", class: "btn btn-primary btn-block btn-big", id: "recipe-new", onclick: () => newRecipe() },
+        h("span", { class: "icon", html: ICONS.plus }), "Nowy przepis"),
+      search, results, list);
+    renderSearch();
   },
 
   subcategories() {
@@ -78,32 +129,60 @@ const SCREENS = {
     const sc = R.findSubcategory(data(), catId, scId);
     if (!cat || !sc) return go("categories");
     shell.setTitle(sc.name);
-    shell.setActions(iconButton("plus", "Nowy przepis", () => { recipeId = null; pendingImage = null; go("form"); }));
+    shell.setActions(iconButton("plus", "Nowy przepis", () => newRecipe({ catId, scId })));
     clear(shell.body, h("div", { class: "crumb" }, cat.name),
-      sc.recipes.length ? h("div", { class: "rows" }, sc.recipes.map((r) =>
-        h("div", { class: "row row-link", role: "button", tabindex: "0", onclick: () => { recipeId = r.id; go("detail"); } },
-          r.image ? h("img", { class: "thumb", src: r.image, alt: "" }) : null,
-          h("span", { class: "row-main" }, h("span", { class: "row-title" }, r.name),
-            h("span", { class: "row-sub" }, `${r.ingredients.length} składników`)),
-          deleteBtn("Usuń przepis " + r.name, async () => {
-            if (await confirmDialog(`Usunąć przepis „${r.name}”?`)) saveRecipes(R.deleteRecipe(data(), catId, scId, r.id));
-          })))) : emptyState("Brak przepisów. Dodaj pierwszy przyciskiem +."));
+      sc.recipes.length ? h("div", { class: "rows" }, sc.recipes.map((r) => recipeRow({ ...r, catId, scId })))
+        : emptyState("Brak przepisów. Dodaj pierwszy przyciskiem +."));
   },
 
   detail() {
     const r = R.findRecipe(data(), catId, scId, recipeId);
     if (!r) return go("list");
     shell.setTitle(r.name);
-    shell.setActions(iconButton("edit", "Edytuj przepis", () => { pendingImage = r.image || null; go("form"); }));
+    shell.setActions(
+      h("button", { type: "button", class: "btn btn-ghost btn-sm" + (cooking ? " active" : ""), id: "cooking-toggle", "aria-pressed": String(cooking),
+        onclick: () => { cooking = !cooking; render(); } }, cooking ? "Zakończ gotowanie" : "Tryb gotowania"),
+      iconButton("edit", "Edytuj przepis", () => go("form")));
+
+    const done = checked.get(r.id) || new Set();
+    checked.set(r.id, done);
+    const toggle = (key, el) => { done.has(key) ? done.delete(key) : done.add(key); el.classList.toggle("done", done.has(key)); };
+
+    const photo = h("div", { class: "hero-wrap" });
+    if (r.photo || r.image) getRecipePhoto(r).then((src) => { if (src) clear(photo, h("img", { class: "hero-img", src, alt: r.name })); });
+    else photo.append(h("label", { class: "photo-drop" }, h("span", { class: "icon", html: ICONS.image }), "Dodaj zdjęcie dania",
+      h("input", { type: "file", accept: "image/*", hidden: true, onchange: async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const version = await saveRecipePhoto(r.id, await compressImage(f));
+          saveRecipes(R.updateRecipe(data(), catId, scId, r.id, { photo: version }));
+          toast("Zdjęcie zapisane");
+        } catch (err) { toast(err.message, 6000); }
+      } })));
+
+    const meta = [r.servings && `🍽 ${r.servings} ${plural(Number(r.servings) || 5, "porcja", "porcje", "porcji")}`, r.time && `⏱ ${r.time}`].filter(Boolean);
+
     clear(shell.body,
-      r.image ? h("img", { class: "hero-img", src: r.image, alt: r.name }) : null,
-      h("div", { class: "section-label" }, "Składniki"),
-      r.ingredients.length ? h("ul", { class: "ingredients" }, r.ingredients.map((i) => h("li", {}, i))) : emptyState("Brak składników."),
-      r.instructions ? [h("div", { class: "section-label" }, "Przygotowanie"), h("div", { class: "prose" }, r.instructions)] : null,
+      photo,
+      meta.length ? h("div", { class: "chips" }, meta.map((m) => h("span", { class: "chip" }, m))) : null,
+      h("div", { class: "section-label" }, `Składniki (${r.ingredients.length})`),
+      r.ingredients.length
+        ? h("ul", { class: "ingredients" }, r.ingredients.map((ing, i) => R.isHeader(ing)
+          ? h("li", { class: "ing-header" }, ing)
+          : h("li", { class: done.has("i" + i) ? "done" : "", onclick: (e) => toggle("i" + i, e.currentTarget) }, ing)))
+        : emptyState("Brak składników."),
+      r.steps.length ? [
+        h("div", { class: "section-label" }, `Przygotowanie (${r.steps.length} ${plural(r.steps.length, "krok", "kroki", "kroków")})`),
+        h("ol", { class: "steps" }, r.steps.map((st, i) =>
+          h("li", { class: done.has("s" + i) ? "done" : "", onclick: (e) => toggle("s" + i, e.currentTarget) }, h("span", { class: "step-num" }, String(i + 1)), h("span", {}, st)))),
+      ] : null,
+      r.notes ? [h("div", { class: "section-label" }, "Notatki"), h("div", { class: "prose" }, r.notes)] : null,
+      r.source ? h("p", { class: "hint" }, "Źródło: ", /^https?:\/\//.test(r.source) ? h("a", { href: r.source, target: "_blank", rel: "noopener" }, r.source) : r.source) : null,
       h("div", { class: "button-stack" },
         h("button", { type: "button", class: "btn btn-primary", onclick: () => {
           const before = shopping().length;
-          const next = R.mergeShopping(shopping(), r.ingredients.map((text) => ({ text })));
+          const next = R.mergeShopping(shopping(), r.ingredients.filter((x) => !R.isHeader(x)).map((text) => ({ text })));
           saveShopping(next);
           toast(`Dodano do listy zakupów: ${next.length - before}`);
         } }, "Dodaj składniki do zakupów"),
@@ -111,111 +190,25 @@ const SCREENS = {
         h("button", { type: "button", class: "btn btn-ghost btn-danger-text", onclick: async () => {
           if (!(await confirmDialog(`Usunąć przepis „${r.name}”?`))) return;
           saveRecipes(R.deleteRecipe(data(), catId, scId, r.id));
+          if (r.photo) deleteRecipePhoto(r.id);
           go("list");
         } }, "Usuń przepis")));
   },
 
-  form() {
-    const editing = recipeId ? R.findRecipe(data(), catId, scId, recipeId) : null;
-    if (recipeId && !editing) return go("list");
-    shell.setTitle(editing ? "Edytuj przepis" : "Nowy przepis");
-
-    const name = h("input", { type: "text", id: "recipe-name", placeholder: "np. Owsianka bananowa", value: editing?.name || "" });
-    const pasted = h("textarea", { id: "recipe-pasted", rows: 3, placeholder: "Wklej tekst przepisu (z Worda, strony, Google Docs)…" });
-    const ingredients = h("textarea", { id: "recipe-ingredients", rows: 6, placeholder: "2 jajka\n1 banan\npół szklanki płatków" });
-    ingredients.value = (editing?.ingredients || []).join("\n");
-    const instructions = h("textarea", { id: "recipe-instructions", rows: 4, placeholder: "Kroki przygotowania…" });
-    instructions.value = editing?.instructions || "";
-    const preview = h("img", { class: "hero-img", alt: "", hidden: !pendingImage, src: pendingImage || null });
-    const removePhoto = h("button", { type: "button", class: "link-btn", hidden: !pendingImage, onclick: () => { pendingImage = null; preview.hidden = true; removePhoto.hidden = true; } }, "Usuń zdjęcie");
-    const ocrStatus = h("div", { class: "hint" });
-
-    const setPhoto = async (file) => {
-      try {
-        pendingImage = await compressImage(file);
-        preview.src = pendingImage; preview.hidden = false; removePhoto.hidden = false;
-      } catch { toast("Nie udało się wczytać zdjęcia."); }
-    };
-    const runOcr = (file) => {
-      if (typeof Tesseract === "undefined") { toast("Rozpoznawanie tekstu wymaga internetu."); return; }
-      ocrStatus.textContent = "Rozpoznaję tekst ze zdjęcia… (to może chwilę potrwać)";
-      Tesseract.recognize(file, "pol+eng")
-        .then(({ data: { text } }) => { pasted.value = text.trim(); ocrStatus.textContent = "Gotowe — sprawdź tekst i kliknij „Rozbij na składniki”."; })
-        .catch(() => { ocrStatus.textContent = "Nie udało się odczytać tekstu. Spróbuj wyraźniejszego zdjęcia."; });
-    };
-    const readDocx = (file) => {
-      if (typeof mammoth === "undefined") { toast("Odczyt .docx wymaga internetu."); return; }
-      file.arrayBuffer().then((buf) => mammoth.extractRawText({ arrayBuffer: buf }))
-        .then((res) => { pasted.value = res.value.trim(); })
-        .catch(() => toast("Nie udało się odczytać pliku .docx."));
-    };
-    const fileBtn = (label, accept, onFile) => h("label", { class: "btn btn-ghost btn-file" }, label,
-      h("input", { type: "file", accept, hidden: true, onchange: (e) => { const f = e.target.files[0]; if (f) onFile(f); e.target.value = ""; } }));
-
-    const save = () => {
-      const n = name.value.trim();
-      if (!n) { name.focus(); toast("Podaj nazwę przepisu."); return; }
-      const fields = { name: n, ingredients: R.parseIngredients(ingredients.value), instructions: instructions.value.trim(), image: pendingImage || null };
-      if (editing) {
-        saveRecipes(R.updateRecipe(data(), catId, scId, recipeId, fields));
-        go("detail");
-      } else {
-        saveRecipes(R.addRecipe(data(), catId, scId, fields));
-        go("list");
-      }
-      pendingImage = null;
-    };
-
-    const form = h("div", { class: "form" },
-      h("label", { class: "field-label", for: "recipe-name" }, "Nazwa"), name,
-      h("div", { class: "field-label" }, "Zdjęcie dania (opcjonalnie)"),
-      h("div", { class: "button-row" }, fileBtn("Wybierz zdjęcie", "image/*", setPhoto), removePhoto),
-      preview,
-      h("div", { class: "field-label" }, "Szybkie wypełnianie"),
-      h("div", { class: "button-row" },
-        fileBtn("Zdjęcie/screen przepisu → tekst", "image/*", runOcr),
-        fileBtn("Plik .docx", ".docx", readDocx)),
-      ocrStatus,
-      pasted,
-      h("div", { class: "button-row" }, h("button", { type: "button", class: "btn btn-ghost", onclick: () => {
-        const lines = R.splitIntoIngredients(pasted.value);
-        if (!lines.length) return;
-        ingredients.value = [ingredients.value.trim(), ...lines].filter(Boolean).join("\n");
-      } }, "Rozbij na składniki ↓")),
-      h("p", { class: "hint" }, "Wskazówka: screen przepisu możesz też wkleić tu skrótem Ctrl+V."),
-      h("label", { class: "field-label", for: "recipe-ingredients" }, "Składniki (każdy w osobnej linii)"), ingredients,
-      h("label", { class: "field-label", for: "recipe-instructions" }, "Przygotowanie (opcjonalnie)"), instructions,
-      h("button", { type: "button", class: "btn btn-primary btn-block", id: "recipe-save", onclick: save }, editing ? "Zapisz zmiany" : "Zapisz przepis"));
-
-    form.addEventListener("paste", (e) => {
-      const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
-      if (!item) return;
-      e.preventDefault();
-      runOcr(item.getAsFile());
-    });
-    clear(shell.body, form);
-  },
+  form() { renderForm(); },
 
   move() {
     const r = R.findRecipe(data(), catId, scId, recipeId);
     if (!r) return go("list");
     shell.setTitle("Przenieś: " + r.name);
     const d = data();
-    const catSel = h("select", { id: "move-cat" }, d.categories.map((c) => h("option", { value: c.id, selected: c.id === catId }, c.name)));
-    const scSel = h("select", { id: "move-sc" });
-    const fill = () => {
-      const c = R.findCategory(d, catSel.value);
-      scSel.replaceChildren(...(c ? c.subcategories : []).map((s) => h("option", { value: s.id, selected: s.id === scId }, s.name)));
-    };
-    catSel.addEventListener("change", fill);
-    fill();
-    clear(shell.body, h("div", { class: "form" },
-      h("label", { class: "field-label", for: "move-cat" }, "Kategoria"), catSel,
-      h("label", { class: "field-label", for: "move-sc" }, "Podkategoria"), scSel,
+    const sel = categoryPicker(d, catId, scId);
+    clear(shell.body, h("div", { class: "form" }, sel.el,
       h("button", { type: "button", class: "btn btn-primary btn-block", onclick: () => {
-        if (!scSel.value) return;
-        saveRecipes(R.moveRecipe(data(), { catId, scId }, { catId: catSel.value, scId: scSel.value }, recipeId));
-        catId = catSel.value; scId = scSel.value;
+        const t = sel.value();
+        if (!t.scId) return;
+        saveRecipes(R.moveRecipe(data(), { catId, scId }, t, recipeId));
+        catId = t.catId; scId = t.scId;
         go("detail");
       } }, "Przenieś tutaj")));
   },
@@ -242,10 +235,10 @@ const SCREENS = {
   shoppingList() {
     shell.setTitle("Lista zakupów");
     const list = shopping();
-    const checked = list.filter((i) => i.checked).length;
+    const nChecked = list.filter((i) => i.checked).length;
     shell.setActions(
       h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { selection = new Set(); go("shoppingPick"); } }, "Z przepisów"),
-      checked ? h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => saveShopping(R.removeChecked(shopping())) }, `Usuń kupione (${checked})`) : null);
+      nChecked ? h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => saveShopping(R.removeChecked(shopping())) }, `Usuń kupione (${nChecked})`) : null);
 
     clear(shell.body,
       !store.shopping.loaded ? emptyState("Łączenie z bazą…")
@@ -273,6 +266,256 @@ const SCREENS = {
   },
 };
 
+// ======================================================================= FORMULARZ
+
+function categoryPicker(d, selCat, selSc) {
+  const catSel = h("select", { id: "form-cat", "aria-label": "Kategoria" });
+  const scSel = h("select", { id: "form-sc", "aria-label": "Podkategoria" });
+  const NEW = "__new__";
+  const fillCats = (selected) => {
+    catSel.replaceChildren(...d.categories.map((c) => h("option", { value: c.id, selected: c.id === selected }, c.name)),
+      h("option", { value: NEW }, d.categories.length ? "+ Nowa kategoria…" : "Moje przepisy (nowa)"));
+  };
+  const fillSubs = (selected) => {
+    const c = R.findCategory(d, catSel.value);
+    scSel.replaceChildren(...(c ? c.subcategories : []).map((s) => h("option", { value: s.id, selected: s.id === selected }, s.name)));
+    scSel.hidden = !c || !c.subcategories.length;
+  };
+  fillCats(selCat || d.categories[0]?.id);
+  fillSubs(selSc);
+  catSel.addEventListener("change", async () => {
+    if (catSel.value === NEW && d.categories.length) {
+      const name = await promptDialog("Nazwa nowej kategorii", { placeholder: "np. Obiady" });
+      if (name) {
+        const next = R.addCategory(data(), name);
+        saveRecipes(next);
+        d = next;
+        fillCats(next.categories.at(-1).id);
+      } else fillCats(d.categories[0]?.id);
+    }
+    fillSubs();
+  });
+  return {
+    el: h("div", { class: "picker" }, h("label", { class: "field-label" }, "Kategoria"), h("div", { class: "picker-row" }, catSel, scSel)),
+    value: () => ({ catId: catSel.value === NEW ? null : catSel.value, scId: scSel.hidden ? null : scSel.value }),
+  };
+}
+
+function readDraft() {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
+}
+
+function renderForm() {
+  const editing = recipeId ? R.findRecipe(data(), catId, scId, recipeId) : null;
+  if (recipeId && !editing) return go("list");
+  shell.setTitle(editing ? "Edytuj przepis" : "Nowy przepis");
+
+  const draft = !editing ? readDraft() : null;
+  const src = editing || draft || {};
+  let photoData = draft?.photoData || null; // nowe zdjecie (dataURL) do zapisania
+  let photoRemoved = false;
+
+  const field = (tag, id, props = {}) => h(tag, { id, autocomplete: "off", ...props });
+  const name = field("input", "recipe-name", { type: "text", placeholder: "np. Owsianka bananowa", value: src.name || "" });
+  const servings = field("input", "recipe-servings", { type: "text", inputmode: "numeric", placeholder: "np. 2", value: src.servings || "" });
+  const time = field("input", "recipe-time", { type: "text", placeholder: "np. 30 min", value: src.time || "" });
+  const ingredients = field("textarea", "recipe-ingredients", { rows: 7, placeholder: "- 2 jajka\n- 1 banan\n- pół szklanki płatków" });
+  ingredients.value = draft?.ingredientsText ?? listToLines(src.ingredients);
+  const steps = field("textarea", "recipe-steps", { rows: 7, placeholder: "1. Płatki zalej mlekiem.\n2. Gotuj 5 minut.\n3. Dodaj banana." });
+  steps.value = draft?.stepsText ?? listToLines(src.steps, "steps");
+  const notes = field("textarea", "recipe-notes", { rows: 2, placeholder: "Wskazówki, zamienniki…" });
+  notes.value = src.notes || "";
+  const source = field("input", "recipe-source", { type: "text", placeholder: "Link albo skąd przepis (opcjonalnie)", value: src.source || "" });
+  const picker = categoryPicker(data(), draft?.catId || catId, draft?.scId || scId);
+
+  // ---- zdjecie dania
+  const preview = h("div", { class: "photo-preview" });
+  const showPhoto = (dataUrl) => {
+    clear(preview, dataUrl
+      ? [h("img", { class: "hero-img", src: dataUrl, alt: "" }),
+         h("button", { type: "button", class: "link-btn", onclick: () => { photoData = null; photoRemoved = true; showPhoto(null); saveDraft(); } }, "Usuń zdjęcie")]
+      : h("label", { class: "photo-drop", id: "photo-pick" }, h("span", { class: "icon", html: ICONS.image }), "Dodaj zdjęcie dania",
+          h("input", { type: "file", accept: "image/*", hidden: true, id: "photo-input", onchange: async (e) => {
+            const f = e.target.files[0];
+            e.target.value = "";
+            if (!f) return;
+            try { photoData = await compressImage(f); photoRemoved = false; showPhoto(photoData); saveDraft(); }
+            catch (err) { toast(err.message); }
+          } })));
+  };
+  if (photoData) showPhoto(photoData);
+  else if (editing && (editing.photo || editing.image)) {
+    showPhoto(null);
+    getRecipePhoto(editing).then((p) => { if (p && !photoData && !photoRemoved) clear(preview, h("img", { class: "hero-img", src: p, alt: "" }),
+      h("button", { type: "button", class: "link-btn", onclick: () => { photoRemoved = true; showPhoto(null); } }, "Usuń zdjęcie")); });
+  } else showPhoto(null);
+
+  // ---- import ze screena / tekstu
+  const progress = h("div", { class: "ocr-progress", hidden: true }, h("div", { class: "bar" }, h("i")), h("span", { class: "hint" }));
+  const rawText = h("textarea", { id: "recipe-raw", rows: 6, placeholder: "Wklej tu tekst przepisu (ze strony, Worda, wiadomości)…" });
+  const rawBox = h("div", { class: "raw-box", hidden: true }, rawText,
+    h("div", { class: "button-row" },
+      h("button", { type: "button", class: "btn btn-primary", id: "recipe-parse", onclick: () => applyParsed(rawText.value) }, "Rozpoznaj składniki i kroki"),
+      h("button", { type: "button", class: "btn btn-ghost", onclick: () => { rawBox.hidden = true; } }, "Zamknij")));
+
+  const setProgress = (p, label) => {
+    progress.hidden = p == null;
+    progress.querySelector("i").style.width = Math.round((p || 0) * 100) + "%";
+    progress.querySelector("span").textContent = label || "";
+  };
+
+  function applyParsed(text) {
+    const parsed = parseRecipeText(text);
+    const found = [];
+    if (parsed.name && !name.value.trim()) { name.value = parsed.name; found.push("nazwę"); }
+    if (parsed.servings && !servings.value.trim()) servings.value = parsed.servings;
+    if (parsed.time && !time.value.trim()) time.value = parsed.time;
+    if (parsed.ingredients.length) {
+      const cur = linesToList(ingredients.value);
+      ingredients.value = listToLines([...cur, ...parsed.ingredients]);
+      found.push(`${parsed.ingredients.length} ${plural(parsed.ingredients.length, "składnik", "składniki", "składników")}`);
+    }
+    if (parsed.steps.length) {
+      const cur = linesToList(steps.value);
+      steps.value = listToLines([...cur, ...parsed.steps], "steps");
+      found.push(`${parsed.steps.length} ${plural(parsed.steps.length, "krok", "kroki", "kroków")}`);
+    }
+    if (parsed.notes && !notes.value.trim()) notes.value = parsed.notes;
+    rawText.value = text;
+    saveDraft();
+    toast(found.length ? `Rozpoznano: ${found.join(", ")} — sprawdź i popraw w razie potrzeby` : "Nie udało się rozpoznać przepisu — popraw tekst poniżej i spróbuj jeszcze raz", 5000);
+    if (!found.length) rawBox.hidden = false;
+  }
+
+  async function importImages(files) {
+    files = [...files].filter((f) => f && f.type.startsWith("image/"));
+    if (!files.length) return;
+    setProgress(0, "Wczytywanie…");
+    try {
+      const text = await recognizeImages(files, setProgress);
+      setProgress(null);
+      applyParsed(text);
+    } catch (err) {
+      setProgress(null);
+      toast(err.message || "Nie udało się rozpoznać tekstu", 6000);
+    }
+  }
+
+  const importCard = h("div", { class: "import-card" },
+    h("div", { class: "import-title" }, "Dodaj szybko"),
+    h("div", { class: "import-buttons" },
+      h("label", { class: "import-btn", id: "import-screens" },
+        h("span", { class: "icon", html: ICONS.image }),
+        h("span", {}, h("b", {}, "Ze screena lub zdjęcia"), h("small", {}, "możesz wybrać kilka naraz")),
+        h("input", { type: "file", accept: "image/*", multiple: true, hidden: true, id: "import-input", onchange: (e) => { importImages(e.target.files); e.target.value = ""; } })),
+      h("button", { type: "button", class: "import-btn", id: "import-text", onclick: () => { rawBox.hidden = false; rawText.focus(); } },
+        h("span", { class: "icon", html: ICONS.edit }),
+        h("span", {}, h("b", {}, "Wklej tekst"), h("small", {}, "ze strony albo wiadomości")))),
+    h("p", { class: "hint desktop-only" }, "Na komputerze możesz też wkleić screen skrótem Ctrl+V albo przeciągnąć tu pliki."),
+    progress, rawBox);
+
+  // ---- szkic (zeby nic nie przepadlo przy zamknieciu)
+  function collect() {
+    return {
+      name: name.value, servings: servings.value, time: time.value, notes: notes.value, source: source.value,
+      ingredientsText: ingredients.value, stepsText: steps.value, ...picker.value(), photoData,
+    };
+  }
+  function saveDraft() {
+    if (editing) return;
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(collect())); }
+    catch { try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...collect(), photoData: null })); } catch {} }
+  }
+  const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
+
+  async function save() {
+    const n = name.value.trim();
+    if (!n) { name.focus(); toast("Podaj nazwę przepisu."); return; }
+    const saveBtn = document.getElementById("recipe-save");
+    saveBtn.disabled = true;
+    let d = data();
+    let target = picker.value();
+    if (!target.catId || !target.scId) {
+      const t = R.ensureDefaultTarget(d);
+      d = t.data;
+      if (!target.catId) target = { catId: t.catId, scId: t.scId };
+      else target.scId = R.findCategory(d, target.catId)?.subcategories[0]?.id || t.scId;
+    }
+    const fields = {
+      name: n,
+      ingredients: linesToList(ingredients.value),
+      steps: linesToList(steps.value),
+      servings: servings.value.trim(),
+      time: time.value.trim(),
+      notes: notes.value.trim(),
+      source: source.value.trim(),
+    };
+    const id = editing ? editing.id : uid();
+    try {
+      if (photoData) fields.photo = await saveRecipePhoto(id, photoData);
+      else if (photoRemoved) { fields.photo = null; fields.image = null; if (editing?.photo) deleteRecipePhoto(id); }
+      else if (editing?.image && !editing.photo) {
+        // przenosimy stare zdjecie z wnetrza przepisu do osobnego miejsca
+        try { fields.photo = await saveRecipePhoto(id, editing.image); fields.image = null; } catch {}
+      }
+    } catch (err) {
+      toast(err.message + " Przepis zapisuję bez zdjęcia.", 7000);
+    }
+
+    if (editing) {
+      d = R.updateRecipe(d, catId, scId, id, fields);
+      if (target.catId !== catId || target.scId !== scId) d = R.moveRecipe(d, { catId, scId }, target, id);
+    } else {
+      d = R.addRecipe(d, target.catId, target.scId, fields, id);
+    }
+    saveRecipes(d);
+    clearDraft();
+    catId = target.catId; scId = target.scId; recipeId = id;
+    toast(editing ? "Zapisano zmiany" : "Przepis zapisany");
+    cooking = false;
+    go("detail");
+  }
+
+  const form = h("form", { class: "form recipe-form", onsubmit: (e) => { e.preventDefault(); save(); }, oninput: saveDraft, onchange: saveDraft },
+    !editing ? importCard : null,
+    draft && !editing && (draft.name || draft.ingredientsText) ? h("div", { class: "draft-note" }, "Przywrócono niezapisany szkic. ",
+      h("button", { type: "button", class: "link-btn", onclick: () => { clearDraft(); render(); } }, "Zacznij od nowa")) : null,
+    h("label", { class: "field-label", for: "recipe-name" }, "Nazwa"), name,
+    h("div", { class: "two-cols" },
+      h("div", {}, h("label", { class: "field-label", for: "recipe-servings" }, "Porcje"), servings),
+      h("div", {}, h("label", { class: "field-label", for: "recipe-time" }, "Czas"), time)),
+    picker.el,
+    h("div", { class: "field-label" }, "Zdjęcie dania"), preview,
+    h("label", { class: "field-label", for: "recipe-ingredients" }, "Składniki — każdy w osobnej linii"), ingredients,
+    h("label", { class: "field-label", for: "recipe-steps" }, "Kroki — każdy w osobnej linii"), steps,
+    h("details", { class: "more" }, h("summary", {}, "Notatki i źródło"),
+      h("label", { class: "field-label", for: "recipe-notes" }, "Notatki"), notes,
+      h("label", { class: "field-label", for: "recipe-source" }, "Źródło"), source),
+    editing ? null : h("p", { class: "hint" }, "Szkic zapisuje się sam — możesz zamknąć i wrócić później."));
+
+  // wklejanie screena (Ctrl+V) i przeciaganie plikow
+  form.addEventListener("paste", (e) => {
+    const files = [...(e.clipboardData?.items || [])].filter((i) => i.type.startsWith("image/")).map((i) => i.getAsFile());
+    if (!files.length) return;
+    e.preventDefault();
+    importImages(files);
+  });
+  form.addEventListener("dragover", (e) => { e.preventDefault(); form.classList.add("dragging"); });
+  form.addEventListener("dragleave", () => form.classList.remove("dragging"));
+  form.addEventListener("drop", (e) => { e.preventDefault(); form.classList.remove("dragging"); importImages(e.dataTransfer.files); });
+
+  clear(shell.body, form);
+  shell.footer.append(h("div", { class: "input-bar" },
+    h("button", { type: "button", class: "btn btn-primary btn-block", id: "recipe-save", style: { marginTop: "0" }, onclick: save }, editing ? "Zapisz zmiany" : "Zapisz przepis")));
+
+  if (pendingImport) {
+    const { files, text } = pendingImport;
+    pendingImport = null;
+    if (files?.length) importImages(files);
+    else if (text) applyParsed(text);
+  }
+}
+
 function shoppingSummary() {
   const list = shopping();
   const left = list.filter((i) => !i.checked).length;
@@ -280,24 +523,11 @@ function shoppingSummary() {
   return `${left} do kupienia${list.length - left ? `, ${list.length - left} kupione` : ""}`;
 }
 
-/** Zmniejsza zdjecie przed zapisaniem w bazie (wczesniej szly pelne zdjecia
- *  z telefonu po kilka MB, co spowalnialo synchronizacje). */
-export function compressImage(file, maxDim = 1000, quality = 0.78) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
-    img.src = url;
-  });
+/** Otworz formularz nowego przepisu i od razu rozpoznaj pliki/tekst
+ *  (uzywane przy "Udostepnij" z galerii telefonu). */
+export function importIntoNewRecipe({ files = [], text = "" }) {
+  pendingImport = { files, text };
+  recipeId = null;
 }
 
 const BACK = {
@@ -317,11 +547,14 @@ registerView({
   },
   onOpen(startScreen = "categories") {
     screen = entry = startScreen;
+    cooking = false;
     render();
   },
+  onClose() { cooking = false; },
   back() {
     if (screen === entry || screen === "categories") return false;
-    if (screen === "form") { go(recipeId ? "detail" : "list"); return true; }
+    if (screen === "form") { go(recipeId ? "detail" : (scId && catId && entry !== "form" && R.findSubcategory(data(), catId, scId) ? "list" : "categories")); return true; }
+    if (screen === "detail" && !R.findSubcategory(data(), catId, scId)) { go("categories"); return true; }
     go(BACK[screen] || "categories");
     return true;
   },

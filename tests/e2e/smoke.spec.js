@@ -27,9 +27,8 @@ test("błąd pogody pokazuje komunikat, ale reszta działa", async ({ page }) =>
 test("menu: wszystkie kafelki otwierają właściwe widoki, wstecz wraca", async ({ page }) => {
   await openApp(page);
   for (const [label, id, title] of [
-    ["Zadania", "todo", "Zadania"], ["Kalendarz", "calendar", "Kalendarz"], ["Witaminy", "supplements", "Witaminy"],
-    ["Zakupy", "recipes", "Lista zakupów"], ["Przepisy", "recipes", "Przepisy"], ["Spotify", "spotify", "Spotify"],
-    ["Ustawienia", "settings", "Ustawienia"],
+    ["Przepisy", "recipes", "Przepisy"], ["Zakupy", "recipes", "Lista zakupów"],
+    ["Zadania", "todo", "Zadania"], ["Kalendarz", "calendar", "Kalendarz"], ["Ustawienia", "settings", "Ustawienia"],
   ]) {
     await openFromMenu(page, label);
     await expect(view(page, id)).toHaveClass(/open/);
@@ -41,14 +40,15 @@ test("menu: wszystkie kafelki otwierają właściwe widoki, wstecz wraca", async
   await page.locator("#menu-btn").click();
   await page.locator(".tile", { hasText: "Pogoda" }).click();
   await expect(page.locator("#menu")).not.toHaveClass(/open/);
-  await expect(page.locator(".tile[data-tile=youtube]")).toHaveAttribute("href", "https://m.youtube.com");
+  await expect(page.locator(".tile")).toHaveCount(6);
+  for (const gone of ["YouTube", "Spotify", "Witaminy"]) await expect(page.locator(".tile", { hasText: gone })).toHaveCount(0);
 });
 
 test("Escape zamyka widok, a kropka synchronizacji otwiera ustawienia", async ({ page }) => {
   await openApp(page);
   await page.locator("#sync").click();
   await expect(view(page, "settings")).toHaveClass(/open/);
-  await expect(view(page, "settings").locator(".sync-row")).toHaveCount(5);
+  await expect(view(page, "settings").locator(".sync-row")).toHaveCount(4);
   await page.keyboard.press("Escape");
   await expect(view(page, "settings")).not.toHaveClass(/open/);
 });

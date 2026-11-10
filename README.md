@@ -1,7 +1,7 @@
 # Dashboard domowy
 
-Strona-panel na komputer i telefon (np. w Fully Kiosk): zegar, pogoda, zadania, kalendarz,
-witaminy, przepisy z listą zakupów, Spotify i polecenia głosowe. Dane są w Firebase Realtime
+Strona-panel na komputer i telefon (np. w Fully Kiosk): zegar, pogoda, przepisy z listą zakupów,
+zadania, kalendarz i polecenia głosowe. Dane są w Firebase Realtime
 Database, więc **każde urządzenie widzi to samo na żywo**, bez odświeżania.
 
 Adres: `https://parari8q.github.io/SmartHome/dashboard.html` (GitHub Pages, bez budowania —
@@ -13,14 +13,27 @@ wystarczy wrzucić pliki).
 |---|---|
 | `dashboard.html` | szkielet strony |
 | `css/app.css` | wygląd |
-| `js/config.js` | **ustawienia** (miasto, adres bazy, Spotify, kafelki-linki) |
+| `js/config.js` | **ustawienia** (miasto, adres bazy) |
 | `js/lib/firebase-sync.js` | synchronizacja z bazą (odczyt na żywo, zapisy, ponawianie bez sieci) |
-| `js/logic/*.js` | logika bez interfejsu: zadania, kalendarz, witaminy, przepisy, pogoda, rozumienie mowy |
+| `js/logic/*.js` | logika bez interfejsu: zadania, kalendarz, przepisy, pogoda, rozumienie mowy |
 | `js/ui/*.js` | poszczególne ekrany |
-| `Pieski/` | zdjęcia-nagrody za passę witamin (dowolne nazwy plików) |
+| `js/logic/recipe-parser.js` | rozpoznawanie przepisu z tekstu (nazwa, porcje, czas, składniki, kroki) |
+| `js/lib/ocr.js` | odczyt tekstu ze screenów/zdjęć (w przeglądarce, nic nie jest wysyłane na zewnątrz) |
 
-Format danych w bazie się nie zmienił (`todo_lists`, `calendar_events`, `supplements_log`,
+Format danych w bazie się nie zmienił (`todo_lists`, `calendar_events`,
 `recipes_data`, `shopping_list`), więc wszystkie stare dane działają.
+
+## Przepisy — szybkie dodawanie
+
+- **Ze screena lub zdjęcia** (można wybrać kilka naraz, np. przepis na 3 screenach): tekst jest
+  odczytywany i sam dzieli się na nazwę, porcje, czas, składniki i kroki. Wystarczy sprawdzić i zapisać.
+- **Wklej tekst** ze strony albo wiadomości — ten sam podział.
+- **Na telefonie z Androidem**: zainstaluj stronę jako aplikację (Chrome → menu → „Dodaj do ekranu
+  głównego”), wtedy w galerii przy screenie pojawi się „Udostępnij → Dashboard”, co otwiera nowy przepis.
+- **Na komputerze**: Ctrl+V ze screenem albo przeciągnięcie plików na formularz.
+- **Zdjęcie dania** zapisuje się w bazie (osobno od przepisu, więc lista ładuje się szybko).
+- Szkic nowego przepisu zapisuje się sam, wyszukiwarka szuka też po składnikach, a „Tryb gotowania”
+  powiększa tekst i pozwala odhaczać składniki i kroki.
 
 ## Polecenia głosowe (mikrofon w lewym dolnym rogu)
 
@@ -67,9 +80,14 @@ automatycznie na jego konto. Oryginał zostaje w bazie jako kopia zapasowa.
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "recipe_photos": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
     "todo_lists":      { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
     "calendar_events": { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
-    "supplements_log": { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
     "recipes_data":    { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
     "shopping_list":   { ".read": "auth != null && auth.uid === 'TWOJE_UID'" }
   }
