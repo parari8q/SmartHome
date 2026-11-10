@@ -112,7 +112,7 @@ test("powiadomienia: dostają je pozostałe osoby (nie autor), zgrupowane, zgodn
   await ona.fill("#shopping-input", "mleko, jajka");
   await ona.keyboard.press("Enter");
   await expect.poll(() => ona.ntfy.length, { timeout: 8000 }).toBe(1);
-  expect(ona.ntfy[0]).toMatchObject({ topic: jaTopic, title: "Ania dodał(a) do zakupów", message: "mleko, jajka", tags: ["shopping_cart"] });
+  expect(ona.ntfy[0]).toMatchObject({ topic: jaTopic, title: "Ania dodał(a) do zakupów", message: "mleko, jajka", tags: ["shopping_cart"], priority: 4 });
 
   // Kuba dodaje wydarzenie -> powiadomienie dla Ani (Kuba nic nie dostaje o sobie)
   await ja.reload();
