@@ -15,6 +15,7 @@ import { auth, dbGet, dbPut, dbDelete, DbError } from "./db.js";
 
 const listeners = new Set();
 let current = null; // { id, info, members, profiles } albo null
+let loadedAt = 0;
 
 const randomId = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
 
@@ -49,7 +50,7 @@ export async function loadGroup(uid) {
       const [info, members, profiles] = await Promise.all([
         dbGet(`groups/${gid}/info`), dbGet(`groups/${gid}/members`), dbGet(`groups/${gid}/profiles`),
       ]);
-      if (info && members && members[uid]) current = { id: gid, info, members, profiles: profiles || {} };
+      if (info && members && members[uid]) { current = { id: gid, info, members, profiles: profiles || {} }; loadedAt = Date.now(); }
     } catch (err) {
       // usunieto nas z grupy (brak dostepu) — wracamy do danych osobistych
       if (err instanceof DbError && (err.status === 401 || err.status === 403)) {
@@ -63,11 +64,19 @@ export async function loadGroup(uid) {
   return current;
 }
 
+/** Odswiez liste osob, jesli dane sa starsze niz maxAgeMs (np. przed wyslaniem
+ *  powiadomien — ktos mogl dolaczyc albo zmienic ustawienia, gdy strona byla otwarta). */
+export async function refreshGroupIfStale(maxAgeMs = 20000) {
+  if (!current || Date.now() - loadedAt < maxAgeMs) return current;
+  try { return await refreshGroup(); } catch { return current; }
+}
+
 export async function refreshGroup() {
   if (!current) return null;
   const gid = current.id;
   const [info, members, profiles] = await Promise.all([dbGet(`groups/${gid}/info`), dbGet(`groups/${gid}/members`), dbGet(`groups/${gid}/profiles`)]);
   current = { id: gid, info, members: members || {}, profiles: profiles || {} };
+  loadedAt = Date.now();
   emit();
   return current;
 }

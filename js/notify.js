@@ -8,7 +8,7 @@
 // ==========================================================================
 
 import { auth } from "./db.js";
-import { currentGroup, DEFAULT_NOTIFY } from "./groups.js";
+import { currentGroup, refreshGroupIfStale, DEFAULT_NOTIFY } from "./groups.js";
 
 export const NTFY_SERVER = "https://ntfy.sh";
 
@@ -51,7 +51,7 @@ async function flush(category) {
   pending.delete(category);
   if (!entry || !entry.items.length) return;
   clearTimeout(entry.timer);
-  const group = currentGroup();
+  const group = (await refreshGroupIfStale()) || currentGroup();
   if (!group) return;
   const cat = CATEGORIES[category];
   const items = [...new Set(entry.items)];

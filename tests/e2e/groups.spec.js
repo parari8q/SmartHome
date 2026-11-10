@@ -10,6 +10,8 @@ const LEGACY = {
   recipes_data: { categories: [{ id: "c", name: "Obiady", subcategories: [{ id: "s", name: "Ogólne", recipes: [{ id: "r1", name: "Pierogi", ingredients: ["mąka"] }] }] }] },
 };
 
+test.describe.configure({ timeout: 60000 }); // kilka urzadzen + celowe czekanie na laczenie powiadomien
+
 test.afterEach(async () => { await closeExtraContexts(); });
 
 test.beforeEach(async ({ request }) => {
@@ -236,4 +238,24 @@ test("zdjęcia przepisów w grupie są wspólne (groups/<id>/photos) i kopiują 
   await ona.fill("#recipe-search", "pierogi");
   await ona.locator(".recipe-row").click();
   await expect(ona.locator("#view-recipes .hero-img")).toBeVisible();
+});
+
+test("osoba dołącza, gdy u drugiej dashboard jest już otwarty: powiadomienia i tak do niej trafiają", async ({ browser }) => {
+  const ja = await device(browser);
+  await signIn(ja, "ja@example.com");
+  const code = await createGroup(ja);
+  await ja.locator("#view-settings .view-back").click();
+
+  const ona = await device(browser, true);
+  await signIn(ona, "ona@example.com");
+  await joinGroup(ona, code, "Ania");
+  const onaTopic = (await ona.locator("#ntfy-topic").textContent()).trim();
+
+  // komputer (ja) nie przeladowywany — po 20 s lista osob odswiezy sie przed wyslaniem
+  await ja.evaluate(() => { const real = Date.now; Date.now = () => real() + 60000; });
+  await openFromMenu(ja, "Zakupy");
+  await ja.fill("#shopping-input", "pomidory");
+  await ja.keyboard.press("Enter");
+  await expect.poll(() => ja.ntfy.map((n) => n.topic), { timeout: 8000 }).toEqual([onaTopic]);
+  expect(ja.ntfy[0].title).toBe("Kuba dodał(a) do zakupów");
 });
