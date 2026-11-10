@@ -27,12 +27,45 @@ let sender = (payload) => fetch(NTFY_SERVER + "/", { method: "POST", body: JSON.
 
 export function _setSenderForTests(fn) { sender = fn; }
 
-/** Zglos zmiane. text: np. "mleko" albo "Dentysta — jutro 15:30". */
-export function notifyGroup(category, text) {
+/** Adres otwierany po kliknieciu powiadomienia: od razu wlasciwy widok
+ *  (dzien w kalendarzu, lista zadan, przepis). Kilka roznych miejsc w jednym
+ *  powiadomieniu -> ogolny widok kategorii. */
+export function buildClickUrl(category, targets, base) {
+  const p = new URLSearchParams();
+  const list = targets.map((t) => t || {});
+  const common = (key) => {
+    const values = [...new Set(list.map((t) => t[key]))];
+    return values.length === 1 && values[0] ? values[0] : null;
+  };
+  const single = list.length === 1 ? list[0] : null;
+  if (category === "shopping") p.set("otworz", "zakupy");
+  if (category === "calendar") {
+    p.set("otworz", "kalendarz");
+    const day = common("day");
+    if (day) p.set("dzien", day);
+    if (day && single?.eventId) p.set("wpis", single.eventId);
+  }
+  if (category === "todo") {
+    p.set("otworz", "zadania");
+    const listId = common("listId");
+    if (listId) p.set("lista", listId);
+    if (listId && single?.taskId) p.set("wpis", single.taskId);
+  }
+  if (category === "recipes") {
+    p.set("otworz", "przepisy");
+    if (single?.recipeId) p.set("przepis", single.recipeId);
+  }
+  return base + "?" + p.toString();
+}
+
+/** Zglos zmiane. text: np. "mleko" albo "Dentysta — jutro 15:30".
+ *  target: gdzie to jest, np. { day, eventId } / { listId, taskId } / { recipeId }. */
+export function notifyGroup(category, text, target = null) {
   const group = currentGroup();
   if (!group || !CATEGORIES[category] || !text) return;
-  const entry = pending.get(category) || { items: [], timer: null };
+  const entry = pending.get(category) || { items: [], targets: [], timer: null };
   entry.items.push(String(text));
+  entry.targets.push(target);
   clearTimeout(entry.timer);
   entry.timer = setTimeout(() => flush(category), BATCH_MS);
   pending.set(category, entry);
@@ -64,7 +97,7 @@ async function flush(category) {
     message,
     tags: [cat.tag],
     priority: PRIORITY,
-    click: location.origin + location.pathname,
+    click: buildClickUrl(category, entry.targets, location.origin + location.pathname),
   }).catch((err) => console.warn("Powiadomienie nie wysłane:", err))));
 }
 

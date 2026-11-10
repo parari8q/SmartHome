@@ -485,7 +485,7 @@ function renderForm() {
       if (target.catId !== catId || target.scId !== scId) d = R.moveRecipe(d, { catId, scId }, target, id);
     } else {
       d = R.addRecipe(d, target.catId, target.scId, fields, id);
-      notifyGroup("recipes", fields.name);
+      notifyGroup("recipes", fields.name, { recipeId: id });
     }
     saveRecipes(d);
     clearDraft();
@@ -564,9 +564,17 @@ registerView({
     store.shopping.subscribe(rerender);
     store.recipes.onStatus((st) => shell.setStatus(st.error || ""));
   },
-  onOpen(startScreen = "categories") {
-    screen = entry = startScreen;
+  onOpen(startScreen = "categories", openRecipeId = null) {
     cooking = false;
+    if (startScreen === "recipe") {
+      // z powiadomienia: konkretny przepis (wstecz -> lista jego podkategorii)
+      const r = R.allRecipes(data()).find((x) => x.id === openRecipeId);
+      entry = "categories";
+      if (r) { catId = r.catId; scId = r.scId; recipeId = r.id; screen = "detail"; }
+      else screen = "categories";
+    } else {
+      screen = entry = startScreen;
+    }
     render();
   },
   onClose() { cooking = false; },

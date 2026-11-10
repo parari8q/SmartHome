@@ -259,3 +259,56 @@ test("osoba dołącza, gdy u drugiej dashboard jest już otwarty: powiadomienia 
   await expect.poll(() => ja.ntfy.map((n) => n.topic), { timeout: 8000 }).toEqual([onaTopic]);
   expect(ja.ntfy[0].title).toBe("Kuba dodał(a) do zakupów");
 });
+
+test("kliknięcie w powiadomienie otwiera właściwe miejsce (dzień w kalendarzu, listę zadań, przepis)", async ({ browser }) => {
+  const ja = await device(browser);
+  await signIn(ja, "ja@example.com");
+  const code = await createGroup(ja);
+  const ona = await device(browser, true);
+  await signIn(ona, "ona@example.com");
+  await joinGroup(ona, code, "Ania");
+
+  // Ania dodaje spotkanie -> powiadomienie dla Kuby z linkiem do tego dnia i wpisu
+  await openFromMenu(ona, "Kalendarz");
+  await ona.locator('#view-calendar .day[data-date="2026-11-12"]').click();
+  await ona.fill("#cal-title-input", "Dentysta");
+  await ona.keyboard.press("Enter");
+  await expect.poll(() => ona.ntfy.length, { timeout: 8000 }).toBe(1);
+  const click = new URL(ona.ntfy[0].click);
+  expect(click.searchParams.get("otworz")).toBe("kalendarz");
+  expect(click.searchParams.get("dzien")).toBe("2026-11-12");
+  expect(click.searchParams.get("wpis")).toMatch(/^ev_/);
+
+  // Kuba klika w powiadomienie (telefon otwiera ten adres)
+  await ja.goto(click.pathname + click.search);
+  await expect(ja.locator("#view-calendar")).toHaveClass(/open/);
+  await expect(ja.locator("#view-calendar .view-title")).toHaveText("Czwartek, 12 listopada 2026");
+  await expect(ja.locator(`#view-calendar [data-event-id="${click.searchParams.get("wpis")}"]`)).toHaveClass(/flash/);
+  await expect(ja).toHaveURL(/dashboard\.html$/);
+
+  // zadanie na liscie
+  await openFromMenu(ona, "Zadania");
+  await ona.locator("#view-todo .row", { hasText: "Moja stara lista" }).click();
+  await ona.fill("#todo-input", "Kupić prezent");
+  await ona.keyboard.press("Enter");
+  await expect.poll(() => ona.ntfy.length, { timeout: 8000 }).toBe(2);
+  const todoClick = new URL(ona.ntfy[1].click);
+  await ja.goto(todoClick.pathname + todoClick.search);
+  await expect(ja.locator("#view-todo .view-title")).toHaveText("Moja stara lista");
+  await expect(ja.locator(`#view-todo [data-task-id="${todoClick.searchParams.get("wpis")}"]`)).toHaveClass(/flash/);
+
+  // nowy przepis (Kuba wlacza powiadomienia o przepisach — domyslnie sa wylaczone)
+  await openFromMenu(ja, "Ustawienia");
+  await ja.locator('#notify-card input[data-cat="recipes"]').check();
+  await expect(ja.locator('#notify-card input[data-cat="recipes"]')).toBeChecked();
+  await ona.evaluate(() => { const n = Date.now; Date.now = () => n() + 60000; }); // Ania pobierze swieze ustawienia
+  await openFromMenu(ona, "Przepisy");
+  await ona.click("#recipe-new");
+  await ona.fill("#recipe-name", "Placki ziemniaczane");
+  await ona.click("#recipe-save");
+  await expect.poll(() => ona.ntfy.length, { timeout: 8000 }).toBe(3);
+  const recipeClick = new URL(ona.ntfy[2].click);
+  expect(recipeClick.searchParams.get("otworz")).toBe("przepisy");
+  await ja.goto(recipeClick.pathname + recipeClick.search);
+  await expect(ja.locator("#view-recipes .view-title")).toHaveText("Placki ziemniaczane");
+});

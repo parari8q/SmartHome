@@ -3,7 +3,7 @@
 import { store } from "../store.js";
 import * as C from "../logic/calendar.js";
 import { h, clear, ICONS, iconButton, emptyState } from "../lib/dom.js";
-import { formatDateKey, startOfDay, capitalize } from "../lib/util.js";
+import { formatDateKey, startOfDay, capitalize, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
 import { notifyGroup } from "../notify.js";
 
@@ -101,8 +101,9 @@ function startEdit(ev, row) {
 function submit() {
   const title = titleInput.value.trim();
   if (!title || !dayKey) return;
-  saveDay(dayKey, C.addEvent(cal(), dayKey, { time: timeInput.value, title }));
-  notifyGroup("calendar", `${title} — ${C.dayLabel(dayKey).replace(/ \d{4}$/, "")}${timeInput.value ? ", " + timeInput.value : ""}`);
+  const eventId = uid("ev_");
+  saveDay(dayKey, C.addEvent(cal(), dayKey, { time: timeInput.value, title }, eventId));
+  notifyGroup("calendar", `${title} — ${C.dayLabel(dayKey).replace(/ \d{4}$/, "")}${timeInput.value ? ", " + timeInput.value : ""}`, { day: dayKey, eventId });
   titleInput.value = "";
   timeInput.value = "";
   titleInput.focus();

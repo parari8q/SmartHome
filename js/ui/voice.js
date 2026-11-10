@@ -7,7 +7,7 @@ import { addTaskToNamedList } from "../logic/todo.js";
 import { addEvent } from "../logic/calendar.js";
 import { mergeShopping } from "../logic/recipes.js";
 import { h, ICONS } from "../lib/dom.js";
-import { parseDateKey } from "../lib/util.js";
+import { parseDateKey, uid } from "../lib/util.js";
 import { notifyGroup } from "../notify.js";
 
 let recognition = null;
@@ -26,15 +26,17 @@ function show(text, autoHideMs = 0) {
 export function runCommand(text, now = new Date()) {
   const cmd = parseVoiceCommand(text, now);
   if (cmd.type === "calendar") {
-    store.calendar.set(cmd.dateKey, addEvent(store.calendar.value, cmd.dateKey, { time: cmd.time, title: cmd.title }));
+    const eventId = uid("ev_");
+    store.calendar.set(cmd.dateKey, addEvent(store.calendar.value, cmd.dateKey, { time: cmd.time, title: cmd.title }, eventId));
     const label = parseDateKey(cmd.dateKey).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
-    notifyGroup("calendar", `${cmd.title} — ${label}${cmd.time ? ", " + cmd.time : ""}`);
+    notifyGroup("calendar", `${cmd.title} — ${label}${cmd.time ? ", " + cmd.time : ""}`, { day: cmd.dateKey, eventId });
     return { cmd, message: `📅 „${cmd.title}” — ${label}${cmd.time ? ", " + cmd.time : ""}` };
   }
   if (cmd.type === "todo") {
     const r = addTaskToNamedList(store.todo.value, cmd.list, cmd.text);
     store.todo.set("", r.lists);
-    notifyGroup("todo", `${cmd.text} (${cmd.list})`);
+    const lastTask = r.lists.find((l) => l.id === r.listId)?.tasks.at(-1);
+    notifyGroup("todo", `${cmd.text} (${cmd.list})`, { listId: r.listId, taskId: lastTask?.id });
     return { cmd, message: `✅ „${cmd.text}” → ${cmd.list}${r.created ? " (nowa lista)" : ""}` };
   }
   if (cmd.type === "shopping") {
