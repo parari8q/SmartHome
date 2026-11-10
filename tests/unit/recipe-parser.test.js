@@ -127,3 +127,53 @@ test("pola formularza: myslniki i numery dodawane/usuwane", () => {
   assert.deepEqual(instructionsToSteps("1. Wymieszaj.\n2. Piecz 20 minut."), ["Wymieszaj.", "Piecz 20 minut."]);
   assert.deepEqual(instructionsToSteps(""), []);
 });
+
+test("tabelka: nazwa po lewej, ilosc po prawej (np. 'bulion warzywny  1 1/5 l')", () => {
+  const r = parseRecipeText(`Zupa krem z dyni
+Składniki
+dynia hokkaido 1 kg
+bulion warzywny 1 1/5 l
+cebula 1 szt.
+czosnek 2 ząbki
+mleczko kokosowe 200 ml
+sól do smaku
+Przygotowanie
+1. Pokrój warzywa.
+2. Gotuj w bulionie 20 minut.`);
+  assert.deepEqual(r.ingredients, [
+    "dynia hokkaido – 1 kg",
+    "bulion warzywny – 1 1/5 l",
+    "cebula – 1 szt.",
+    "czosnek – 2 ząbki",
+    "mleczko kokosowe – 200 ml",
+    "sól – do smaku",
+  ]);
+  assert.equal(r.steps.length, 2);
+});
+
+test("skladniki malymi literami bez ilosci na poczatku nie sa sklejane w jedna linie", () => {
+  const r = parseRecipeText(`Składniki
+oliwa z oliwek do smażenia
+pomidory z puszki 400 g
+świeża bazylia
+Przygotowanie
+Wszystko podgrzej.`);
+  assert.deepEqual(r.ingredients, ["oliwa z oliwek – do smażenia", "pomidory z puszki – 400 g", "świeża bazylia"]);
+});
+
+test("ulamki i ilosci: 1/2, 1,5, ½, 1 1/2", () => {
+  const r = parseRecipeText(`Składniki
+1/2 szklanki cukru
+mąka 1,5 szklanki
+½ łyżeczki soli
+masło 1 1/2 kostki`);
+  assert.deepEqual(r.ingredients, ["1/2 szklanki cukru", "mąka – 1,5 szklanki", "½ łyżeczki soli", "masło – 1 1/2 kostki"]);
+});
+
+test("zawijana dluga nazwa skladnika dalej sie skleja", () => {
+  const r = parseRecipeText(`Składniki
+• 500 g mąki pszennej typu 650 albo
+tortowej
+• 2 jajka`);
+  assert.deepEqual(r.ingredients, ["500 g mąki pszennej typu 650 albo tortowej", "2 jajka"]);
+});

@@ -31,6 +31,10 @@ const NUMBERED = /^\s*(?:krok\s*\d{1,2}\s*[.):\-–]?\s+|step\s*\d{1,2}\s*[.):\-
 const QTY_WORDS = "pół|polowa|ćwierć|szczypt[aęy]|garść|garści|łyżk[aięy]|łyżeczk[aięy]|łyżek|łyżeczek|szklank[aięy]|szklanek|kubek|kubka|opakowani[ea]|opak\\.?|puszk[aię]|puszek|ząb(?:ek|ki|ków)|ząbki|plaster(?:ek|ki)?|plastr[yów]*|kawał(?:ek|ki)|sztuk[ia]?|szt\\.?|pęczek|pęczka|główk[ai]|listek|liście|kostk[ai]|kostek|do\\s+smaku|według\\s+uznania|wg\\s+uznania|ok\\.";
 const UNITS = "g|gr|dag|dkg|kg|ml|l|litr[ay]?|łyż\\.?|łyżecz\\.?|tbsp|tsp|cup|cups|oz|lb";
 const QTY_START = new RegExp(`^(?:\\d+(?:[.,/]\\d+)?|[½¼¾⅓⅔]|${QTY_WORDS})(?=[\\s${L}½¼¾]|$)`, "iu");
+// ilosc na KONCU linii (tabelki "nazwa ... ilosc" na stronach z przepisami)
+const QTY_NUM = "(?:\\d+(?:[.,]\\d+)?(?:\\s+\\d+\\/\\d+)?|\\d+\\/\\d+|[½¼¾⅓⅔])";
+const TRAILING_QTY = new RegExp(
+  `^(\\p{L}[^\\d½¼¾⅓⅔]*?)\\s+((?:${QTY_NUM}(?:\\s*-\\s*${QTY_NUM})?\\s*(?:(?:${UNITS}|${QTY_WORDS})\\.?)?(?:\\s+\\p{L}+\\.?)?)|do\\s+smaku|do\\s+sma[żz]enia|wg\\s+uznania|według\\s+uznania|opcjonalnie|szczypta)$`, "iu");
 const HAS_UNIT = new RegExp(`(?:^|\\s|\\d)(?:${UNITS})(?=[\\s.,)]|$)|(?:^|\\s)(?:${QTY_WORDS})(?=[\\s.,)]|$)`, "iu");
 
 function cleanLine(raw) {
@@ -49,10 +53,16 @@ function stripMarker(line) {
   return line.replace(BULLET, "").replace(NUMBERED, "").trim();
 }
 
+function trailingQty(s) {
+  if (QTY_START.test(s) || s.length > 70) return null;
+  const m = s.match(TRAILING_QTY);
+  return m && m[1].trim().length >= 2 ? { name: m[1].trim().replace(/[,:–-]$/, "").trim(), qty: m[2].trim() } : null;
+}
+
 function looksLikeIngredient(line) {
   const s = stripMarker(line);
   if (s.length > 80) return false;
-  if (QTY_START.test(s) || HAS_UNIT.test(s)) return true;
+  if (QTY_START.test(s) || HAS_UNIT.test(s) || trailingQty(s)) return true;
   // krotka linia bez czasownika na koncu zdania, z punktorem
   return BULLET.test(line) && s.length <= 45 && !/[.!]$/.test(s);
 }
@@ -73,7 +83,11 @@ function joinWrapped(lines, kind) {
     const continuation = prev != null && !startsNew(s) && (
       kind === "steps"
         ? !/[.!?:]$/.test(prev) || /^\p{Ll}/u.test(s)
-        : /^\p{Ll}/u.test(s) && !QTY_START.test(s) && !/[,:]$/.test(prev) && prev.length > 18
+        // skladnik: dopisujemy tylko krotki "ogon" zawinietej linii — nie gdy linia
+        // wyglada na osobny skladnik (ma ilosc) albo poprzednia jest kompletna
+        : /^\p{Ll}/u.test(s) && !QTY_START.test(s) && !HAS_UNIT.test(s) && !trailingQty(s) &&
+          !trailingQty(stripMarker(prev)) && !/[,:]$/.test(prev) && prev.length > 18 &&
+          (BULLET.test(prev) || NUMBERED.test(prev) || QTY_START.test(stripMarker(prev))) && s.split(/\s+/).length <= 3
     );
     if (continuation) out[out.length - 1] = (prev.replace(/-$/, "") + (prev.endsWith("-") ? "" : " ") + s).trim();
     else out.push(s);
@@ -157,7 +171,8 @@ export function parseRecipeText(input) {
   const ingLines = sections.ingredients.filter(Boolean);
   result.ingredients = joinWrapped(ingLines, "ingredients")
     .flatMap((l) => (BULLET.test(l) || NUMBERED.test(l) || QTY_START.test(l) || l.length < 50 ? [l] : l.split(/\s*[;,]\s+(?=\d|[½¼¾]|pół)/u)))
-    .map((l) => stripMarker(l).replace(/[;,.]$/, "").trim())
+    .map((l) => stripMarker(l).replace(/[;,]$/, "").replace(/(?<!szt|op|ok|łyż|łyżecz|opak|godz|min)\.$/u, "").trim())
+    .map((l) => { const t = trailingQty(l); return t ? `${t.name} – ${t.qty}` : l; })
     .filter((l) => l && !isJunk(l));
 
   // ---- kroki

@@ -355,7 +355,11 @@ function renderForm() {
   const rawText = h("textarea", { id: "recipe-raw", rows: 6, placeholder: "Wklej tu tekst przepisu (ze strony, Worda, wiadomości)…" });
   const rawBox = h("div", { class: "raw-box", hidden: true }, rawText,
     h("div", { class: "button-row" },
-      h("button", { type: "button", class: "btn btn-primary", id: "recipe-parse", onclick: () => applyParsed(rawText.value) }, "Rozpoznaj składniki i kroki"),
+      h("button", { type: "button", class: "btn btn-primary", id: "recipe-parse", onclick: () => {
+        // ponowne rozpoznanie poprawionego tekstu zastepuje skladniki i kroki zamiast je dublowac
+        if (rawText.dataset.fromImport) { ingredients.value = ""; steps.value = ""; }
+        applyParsed(rawText.value);
+      } }, "Rozpoznaj składniki i kroki"),
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => { rawBox.hidden = true; } }, "Zamknij")));
 
   const setProgress = (p, label) => {
@@ -382,6 +386,8 @@ function renderForm() {
     }
     if (parsed.notes && !notes.value.trim()) notes.value = parsed.notes;
     rawText.value = text;
+    const showRaw = document.getElementById("show-raw");
+    if (showRaw) showRaw.hidden = false;
     saveDraft();
     toast(found.length ? `Rozpoznano: ${found.join(", ")} — sprawdź i popraw w razie potrzeby` : "Nie udało się rozpoznać przepisu — popraw tekst poniżej i spróbuj jeszcze raz", 5000);
     if (!found.length) rawBox.hidden = false;
@@ -394,6 +400,7 @@ function renderForm() {
     try {
       const text = await recognizeImages(files, setProgress);
       setProgress(null);
+      rawText.dataset.fromImport = "1";
       applyParsed(text);
     } catch (err) {
       setProgress(null);
@@ -412,7 +419,10 @@ function renderForm() {
         h("span", { class: "icon", html: ICONS.edit }),
         h("span", {}, h("b", {}, "Wklej tekst"), h("small", {}, "ze strony albo wiadomości")))),
     h("p", { class: "hint desktop-only" }, "Na komputerze możesz też wkleić screen skrótem Ctrl+V albo przeciągnąć tu pliki."),
-    progress, rawBox);
+    progress,
+    h("button", { type: "button", class: "link-btn", id: "show-raw", hidden: true, onclick: () => { rawBox.hidden = false; rawText.focus(); } },
+      "Pokaż odczytany tekst (popraw, jeśli coś jest źle, i rozpoznaj ponownie)"),
+    rawBox);
 
   // ---- szkic (zeby nic nie przepadlo przy zamknieciu)
   function collect() {
