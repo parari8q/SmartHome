@@ -45,6 +45,9 @@ export const store = {
 
 let activeUid; // undefined = jeszcze nie uruchomiono
 let space = { kind: "legacy", base: null };
+// false, dopoki nie wiadomo, czyje dane wczytac (konto/grupa) — wtedy nic sie nie laczy,
+// zeby na chwile nie pokazac danych z niewlasciwego miejsca
+let spaceReady = false;
 const spaceListeners = new Set();
 
 /** Aktualne miejsce danych: { kind: "legacy" | "personal" | "group", base, gid? } */
@@ -71,6 +74,7 @@ async function resolveSpace(uid) {
 /** Przelacz dane na przestrzen danego konta (albo stara wspolna, gdy null). */
 async function activate(uid) {
   activeUid = uid;
+  spaceReady = false;
   if (uid && localStorage.getItem("migrated_" + uid) !== "1") {
     try {
       const token = await auth.getToken();
@@ -90,6 +94,7 @@ async function activate(uid) {
     if (doc.path.join("/") === path) { doc.connect(); doc.retryNow(); }
     else doc.setPath(path);
   }
+  spaceReady = true;
 }
 
 export function currentUid() { return activeUid || null; }
@@ -104,7 +109,7 @@ export function connectAll() {
     if (uid !== activeUid) activate(uid);
   });
 
-  const reconnect = () => { for (const doc of Object.values(store)) doc.ensureConnected(); };
+  const reconnect = () => { if (spaceReady) for (const doc of Object.values(store)) doc.ensureConnected(); };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnect(); });
   window.addEventListener("online", reconnect);
   window.addEventListener("pageshow", reconnect);

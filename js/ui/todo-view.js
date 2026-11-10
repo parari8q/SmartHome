@@ -3,7 +3,7 @@
 import { store } from "../store.js";
 import * as T from "../logic/todo.js";
 import { h, clear, ICONS, iconButton, emptyState, confirmDialog, inputBar } from "../lib/dom.js";
-import { plural } from "../lib/util.js";
+import { plural, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
 import { notifyGroup } from "../notify.js";
 
@@ -93,11 +93,13 @@ registerView({
       placeholder: "Nazwa nowej listy…",
       onSubmit: (value) => {
         if (listId) {
-          save(T.addTask(lists(), listId, value));
-          notifyGroup("todo", `${value} (${lists().find((l) => l.id === listId)?.name || "lista"})`);
+          const taskId = uid("task_");
+          save(T.addTask(lists(), listId, value, taskId));
+          notifyGroup("todo", `${value} (${lists().find((l) => l.id === listId)?.name || "lista"})`, { listId, taskId });
         } else {
-          save(T.createList(lists(), value));
-          notifyGroup("todo", `nowa lista „${value}”`);
+          const newId = uid("list_");
+          save(T.createList(lists(), value, newId));
+          notifyGroup("todo", `nowa lista „${value}”`, { listId: newId });
         }
       },
     });

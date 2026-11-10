@@ -13,6 +13,7 @@ import "./ui/todo-view.js";
 import "./ui/calendar-view.js";
 import "./ui/recipes-view.js";
 import { handleInviteLink } from "./ui/settings-view.js";
+import { handleDeepLink } from "./ui/deeplink.js";
 
 initLayout();
 renderMenu();
@@ -73,5 +74,6 @@ async function handleSharedFiles() {
 }
 handleSharedFiles();
 handleInviteLink();
+handleDeepLink();
 
 window.__app = { openView };
