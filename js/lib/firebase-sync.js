@@ -176,6 +176,7 @@ export class SyncedDoc {
     if (!payload || typeof payload !== "object" || !("path" in payload)) return;
 
     this.server = applyFirebaseEvent(this.server, type, payload.path, payload.data);
+    const firstLoad = !this.loaded;
     this.loaded = true;
     this._retriedWithFreshToken = false;
     this._reconnectDelay = 0;
@@ -186,7 +187,7 @@ export class SyncedDoc {
     // dane przyszly = dostep jest (np. zaraz po zalogowaniu)
     if (this.lastError && this.lastError.startsWith("Brak dostępu")) this.lastError = null;
     this._pruneAcked();
-    this._emit();
+    this._emit(firstLoad); // pierwsze dane zawsze ogloszone, nawet gdy baza jest pusta
     this._emitStatus();
   }
 
@@ -232,6 +233,26 @@ export class SyncedDoc {
     const stale = this.now() - this.lastEventAt > this.staleAfterMs;
     if (!this.es || this.es.readyState === CLOSED || stale) this.connect();
     if (this.queue.some((op) => op.state === "queued")) this.retryNow(); // "blocked" czeka na zalogowanie
+  }
+
+  /** Przelacz dokument na inne miejsce w bazie (np. po zalogowaniu innego
+   *  uzytkownika). Niezapisane zmiany sa zachowywane i trafiaja w nowe miejsce. */
+  setPath(path, { connect = true } = {}) {
+    const next = splitPath(path);
+    if (next.join("/") === this.path.join("/")) return;
+    if (this.es) { try { this.es.close(); } catch {} this.es = null; }
+    this._connectSeq++;
+    this.path = next;
+    this.server = null;
+    this.loaded = false;
+    this.connection = "connecting";
+    this.lastError = null;
+    this._retriedWithFreshToken = false;
+    this.queue = this.queue.filter((op) => op.state !== "acked");
+    for (const op of this.queue) if (op.state === "blocked") op.state = "queued";
+    this._emit(true);
+    this._emitStatus();
+    if (connect) { this.connect(); this.retryNow(); }
   }
 
   close() {

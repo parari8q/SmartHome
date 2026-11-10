@@ -41,30 +41,41 @@ npm run serve         # podgląd lokalny: http://localhost:8080/dashboard.html (
 Testy e2e nie dotykają prawdziwej bazy: używają lokalnej atrapy Firebase (`tests/e2e/fake-firebase.js`).
 Uruchamiają się też automatycznie na GitHubie przy każdym pushu (zakładka Actions).
 
-## Prywatna baza (logowanie)
+## Konta i prywatność
 
-Strona obsługuje logowanie e-mailem i hasłem (Firebase Authentication). Gdy baza jest prywatna,
-każde urządzenie loguje się **raz** na to samo konto i dalej wszystkie widzą te same dane na żywo.
-Konto: Ustawienia → Konto (tam też „Wyloguj”).
+Każde konto ma **własne dane** (w bazie pod `users/<uid>/...`). Wszystkie urządzenia zalogowane
+na to samo konto widzą te same dane na żywo; inne konto ma swoje, osobne dane.
+Logowanie raz na urządzeniu: Ustawienia → Konto.
 
-Jak włączyć (konsola Firebase, projekt `smarthome-cdd0e`):
+Dotychczasowe dane (z czasów bez kont) przy pierwszym logowaniu właściciela kopiują się
+automatycznie na jego konto. Oryginał zostaje w bazie jako kopia zapasowa.
 
-1. **Authentication → Get started → Sign-in method → Email/Password → Enable** (bez „Email link”).
-2. **Authentication → Users → Add user**: Twój e-mail + hasło. Skopiuj **User UID** tego konta.
-3. **Authentication → Settings → User actions**: odznacz **Enable create (sign-up)**, żeby nikt obcy
-   nie mógł założyć sobie konta.
-4. **Authentication → Settings → Authorized domains**: upewnij się, że jest `parari8q.github.io`.
-5. Zaloguj się na stronie na **wszystkich** urządzeniach (Ustawienia → Konto → Zaloguj).
-6. Dopiero teraz **Realtime Database → Rules**, wklej (podmień UID) i **Publish**:
+### Konfiguracja (konsola Firebase, projekt `smarthome-cdd0e`)
+
+1. **Authentication → Sign-in method → Email/Password → Enable**.
+2. **Authentication → Users → Add user** — po jednym na osobę. UID właściciela przyda się w regułach.
+3. **Authentication → Settings → User actions**: odznacz **Enable create (sign-up)**
+   (nowe konta dodajesz tylko Ty, ręcznie).
+4. **Realtime Database → Rules** (podmień `TWOJE_UID`) → **Publish**:
 
 ```json
 {
   "rules": {
-    ".read": "auth != null && auth.uid === 'TUTAJ_WKLEJ_UID'",
-    ".write": "auth != null && auth.uid === 'TUTAJ_WKLEJ_UID'"
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "todo_lists":      { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
+    "calendar_events": { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
+    "supplements_log": { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
+    "recipes_data":    { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
+    "shopping_list":   { ".read": "auth != null && auth.uid === 'TWOJE_UID'" }
   }
 }
 ```
 
-Urządzenie, które nie jest zalogowane, po zmianie reguł samo pokaże ekran logowania.
-Cofnięcie: wklej z powrotem `{"rules": {".read": true, ".write": true}}`.
+Pierwsza część: każdy czyta i zapisuje tylko swoją przestrzeń. Druga: stare, wspólne dane może
+odczytać tylko właściciel (do jednorazowego przeniesienia). Nowe konto dodane w Authentication
+działa od razu, bez zmian w regułach.

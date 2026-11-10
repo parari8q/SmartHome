@@ -10,14 +10,26 @@ export async function resetDb(request, data = null) {
   await request.post(DB + "/__auth?required=0");
 }
 
-/** Atrapa logowania Firebase: haslo "dobrehaslo" dziala, reszta nie. */
+/** Atrapa logowania Firebase: haslo "dobrehaslo" dziala, reszta nie.
+ *  UID z e-maila: ja@example.com -> uid-ja (token "tok-uid-ja"). */
 export async function mockFirebaseAuth(page) {
+  const uidOf = (email) => "uid-" + String(email).split("@")[0];
   await page.route(/identitytoolkit\.googleapis\.com/, async (r) => {
     const body = JSON.parse(r.request().postData());
-    if (body.password === "dobrehaslo") return r.fulfill({ json: { idToken: "tok-1", refreshToken: "ref-1", expiresIn: "3600", localId: "uid-1", email: body.email } });
+    const uid = uidOf(body.email);
+    if (body.password === "dobrehaslo") return r.fulfill({ json: { idToken: "tok-" + uid, refreshToken: "ref-" + uid, expiresIn: "3600", localId: uid, email: body.email } });
     return r.fulfill({ status: 400, json: { error: { message: "INVALID_LOGIN_CREDENTIALS" } } });
   });
-  await page.route(/securetoken\.googleapis\.com/, (r) => r.fulfill({ json: { id_token: "tok-2", refresh_token: "ref-1", expires_in: "3600", user_id: "uid-1" } }));
+  await page.route(/securetoken\.googleapis\.com/, (r) => {
+    const uid = new URLSearchParams(r.request().postData()).get("refresh_token").slice(4);
+    return r.fulfill({ json: { id_token: "tok-" + uid, refresh_token: "ref-" + uid, expires_in: "3600", user_id: uid } });
+  });
+}
+
+export async function login(page, email = "ja@example.com", password = "dobrehaslo") {
+  await page.fill("#login-email", email);
+  await page.fill("#login-password", password);
+  await page.click("#login-submit");
 }
 
 export async function dumpDb(request) {

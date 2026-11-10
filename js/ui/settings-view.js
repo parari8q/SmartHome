@@ -24,9 +24,9 @@ function render() {
     h("div", { class: "row", id: "account-row" },
       h("span", { class: "row-main" },
         h("span", { class: "row-title" }, auth.isLoggedIn ? auth.email : "Niezalogowano"),
-        h("span", { class: "row-sub" }, auth.isLoggedIn ? "Zalogowano na tym urządzeniu" : "Zaloguj się, gdy baza jest prywatna")),
+        h("span", { class: "row-sub" }, auth.isLoggedIn ? "Widzisz dane tego konta — wspólne dla wszystkich urządzeń, na których się nim zalogujesz" : "Zaloguj się, żeby zobaczyć swoje dane")),
       auth.isLoggedIn
-        ? h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { auth.signOut(); reconnectAll(); render(); } }, "Wyloguj")
+        ? h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { auth.signOut(); render(); } }, "Wyloguj")
         : h("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => showLogin() }, "Zaloguj")),
     h("div", { class: "section-label" }, "Synchronizacja"),
     h("div", { class: "rows" }, Object.entries(store).map(([key, doc]) => {
@@ -39,7 +39,7 @@ function render() {
     h("div", { class: "button-row" },
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => { for (const d of Object.values(store)) d.connect(); setTimeout(render, 800); } }, "Połącz ponownie"),
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => location.reload() }, "Przeładuj aplikację")),
-    h("p", { class: "hint" }, "Dane (zadania, kalendarz, witaminy, przepisy, zakupy) są wspólne dla wszystkich urządzeń i aktualizują się na żywo. Układ ekranu i logowanie do Spotify są osobne dla każdego urządzenia."));
+    h("p", { class: "hint" }, "Zadania, kalendarz, witaminy, przepisy i zakupy należą do konta: każde urządzenie zalogowane na to samo konto widzi je na żywo, a inne konto ma swoje, osobne dane. Układ ekranu i logowanie do Spotify są osobne dla każdego urządzenia."));
 }
 
 registerView({

@@ -340,3 +340,32 @@ test("logowanie: zalogowany, a zapis dalej 401 -> swiezy token, potem komunikat 
   assert.ok(forced.includes(true), "probowal ze swiezym tokenem");
   assert.match(doc.getState().error, /\.write/);
 });
+
+test("zmiana konta (setPath): nowe miejsce w bazie, stare dane znikaja, niezapisane zmiany ida w nowe miejsce", async () => {
+  const { doc, es, calls, responders } = setup();
+  es.emit("put", "/", ["legacy"]);
+  const seen = [];
+  doc.subscribe((v) => seen.push(v));
+  doc.set("", ["legacy", "nowe"]);
+  responders[0].reject(new TypeError("offline")); // zapis czeka w kolejce
+  await tick();
+  doc.setPath("users/u1/todo_lists");
+  assert.notEqual(FakeES.last, es);
+  assert.equal(FakeES.last.url, "https://db.example/users/u1/todo_lists.json");
+  assert.equal(doc.getState().loaded, false);
+  FakeES.last.emit("put", "/", ["konto"]);
+  assert.deepEqual(doc.value, ["legacy", "nowe"], "niezapisana zmiana nalozona na nowe miejsce");
+  await tick();
+  assert.equal(calls.at(-1).url, "https://db.example/users/u1/todo_lists.json");
+});
+
+test("pusta baza: pierwsze (puste) dane i tak sa oglaszane odbiorcom", () => {
+  const { doc, es } = setup();
+  const seen = [];
+  doc.subscribe((v) => seen.push(v));
+  doc.setPath("users/nowy/todo_lists");
+  const before = seen.length;
+  FakeES.last.emit("put", "/", null);
+  assert.equal(seen.length, before + 1);
+  assert.equal(doc.getState().loaded, true);
+});
