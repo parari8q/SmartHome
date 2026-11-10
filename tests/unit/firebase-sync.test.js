@@ -304,16 +304,39 @@ test("logowanie: wygasly token w strumieniu (auth_revoked) -> nowe polaczenie z 
   assert.deepEqual(t.tokens, [false, true]);
 });
 
-test("logowanie: zapis odrzucony 401 cofa zmiane i prosi o logowanie", async () => {
+test("logowanie: niezalogowany zapis (401) czeka i zapisuje sie po zalogowaniu", async () => {
   const clock = makeTimers();
-  let asked = 0;
+  let asked = 0, token = null;
+  const calls = [];
   const doc = new SyncedDoc({ baseUrl: "https://db.example", path: "x", EventSourceImpl: FakeES, timers: clock.timers, now: clock.now,
-    fetchImpl: async () => ({ ok: false, status: 401, text: async () => "Permission denied" }),
-    getAuthToken: async () => null, onAuthRequired: () => asked++ });
+    fetchImpl: async (url) => { calls.push(url); return url.includes("auth=") ? ok : { ok: false, status: 401, text: async () => "Permission denied" }; },
+    getAuthToken: async () => token, onAuthRequired: () => asked++ });
   doc.connect();
   await tick();
   FakeES.last.emit("put", "/", ["a"]);
-  await assert.rejects(doc.set("", ["a", "b"]), /zaloguj/);
-  assert.deepEqual(doc.value, ["a"]);
+  const p = doc.set("", ["a", "b"]);
+  await tick(); await tick();
+  assert.deepEqual(doc.value, ["a", "b"], "zmiana nie znika");
   assert.equal(asked, 1);
+  token = "tok";
+  doc.retryNow();
+  await p;
+  assert.match(calls.at(-1), /auth=tok/);
+});
+
+test("logowanie: zalogowany, a zapis dalej 401 -> swiezy token, potem komunikat o regulach (bez petli logowania)", async () => {
+  const clock = makeTimers();
+  let asked = 0;
+  const forced = [];
+  const doc = new SyncedDoc({ baseUrl: "https://db.example", path: "x", EventSourceImpl: FakeES, timers: clock.timers, now: clock.now,
+    fetchImpl: async () => ({ ok: false, status: 401, text: async () => "Permission denied" }),
+    getAuthToken: async ({ force }) => { forced.push(force); return "tok"; }, onAuthRequired: () => asked++ });
+  doc.connect();
+  await tick();
+  FakeES.last.emit("put", "/", ["a"]);
+  await assert.rejects(doc.set("", ["a", "b"]), /reguł/);
+  assert.deepEqual(doc.value, ["a"]);
+  assert.equal(asked, 0, "nie prosi o logowanie, bo uzytkownik jest zalogowany");
+  assert.ok(forced.includes(true), "probowal ze swiezym tokenem");
+  assert.match(doc.getState().error, /\.write/);
 });

@@ -86,3 +86,30 @@ test("ustawienia: konto i wylogowanie", async ({ page, request }) => {
   await expect(page.locator("#login")).toBeVisible();
   await expect(page.locator("#sync")).toHaveAttribute("data-status", "auth");
 });
+
+test("niezalogowany dodaje zadanie: pojawia się logowanie, a po nim zadanie zapisuje się samo (nic nie ginie)", async ({ page, request }) => {
+  await request.post(DB + "/__auth?required=0");
+  await openApp(page);
+  await openFromMenu(page, "Zadania");
+  await request.post(DB + "/__auth?required=1");
+  await expect(page.locator("#login")).toBeVisible();
+  await page.locator("#login .link-btn").click(); // "Nie teraz"
+  await page.fill("#todo-input", "Nie zgub mnie");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#login")).toBeVisible();
+  await expect(view(page, "todo").locator(".row", { hasText: "Nie zgub mnie" })).toBeVisible();
+  await login(page);
+  await expect.poll(async () => (await dumpDb(request)).todo_lists.map((l) => l.name)).toContain("Nie zgub mnie");
+});
+
+test("zalogowany, ale reguła .write błędna: jasny komunikat zamiast ciągłego logowania", async ({ page, request }) => {
+  await request.post(DB + "/__auth?required=1&readonly=1");
+  await openApp(page, { expectStatus: "auth" });
+  await login(page);
+  await expect(page.locator("#sync")).toHaveAttribute("data-status", "live");
+  await openFromMenu(page, "Zadania");
+  await page.fill("#todo-input", "Test zapisu");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#view-todo .view-status")).toContainText(".write");
+  await expect(page.locator("#login")).toHaveCount(0);
+});

@@ -231,7 +231,7 @@ export class SyncedDoc {
   ensureConnected() {
     const stale = this.now() - this.lastEventAt > this.staleAfterMs;
     if (!this.es || this.es.readyState === CLOSED || stale) this.connect();
-    if (this.queue.some((op) => op.state === "queued")) this.retryNow();
+    if (this.queue.some((op) => op.state === "queued")) this.retryNow(); // "blocked" czeka na zalogowanie
   }
 
   close() {
@@ -262,6 +262,7 @@ export class SyncedDoc {
   }
 
   retryNow() {
+    for (const op of this.queue) if (op.state === "blocked") op.state = "queued";
     if (this._retryTimer) { this.timers.clearTimeout(this._retryTimer); this._retryTimer = null; }
     this._pump();
   }
@@ -297,13 +298,35 @@ export class SyncedDoc {
     this._writing = false;
     this._retryDelay = 1000;
 
+    const denied = res.status === 401 || res.status === 403;
+    if (denied && this.getAuthToken) {
+      const loggedIn = !!(await this._token());
+      if (!loggedIn) {
+        // niezalogowany: zmiana czeka (nie ginie) i zapisze sie zaraz po zalogowaniu
+        op.state = "blocked";
+        this.lastError = "Brak dostępu do bazy — zaloguj się";
+        this._emitStatus();
+        this.onAuthRequired?.();
+        this._pump();
+        return;
+      }
+      if (!op.freshTokenTried) {
+        // zalogowany: moze token wlasnie wygasl — jedna proba ze swiezym
+        op.freshTokenTried = true;
+        await this._token(true);
+        op.state = "queued";
+        this._pump();
+        return;
+      }
+    }
+
     if (!res.ok) {
       let body = "";
       try { body = await res.text(); } catch {}
       this.queue = this.queue.filter((o) => o !== op);
-      const denied = res.status === 401 || res.status === 403;
-      this.lastError = denied ? "Brak dostępu do bazy — zaloguj się" : `Błąd zapisu (HTTP ${res.status}) ${body.slice(0, 120)}`.trim();
-      if (denied) this.onAuthRequired?.();
+      this.lastError = !denied ? `Błąd zapisu (HTTP ${res.status}) ${body.slice(0, 120)}`.trim()
+        : this.getAuthToken ? "Baza odrzuciła zapis mimo zalogowania — sprawdź regułę \".write\" w Firebase"
+        : "Brak dostępu do bazy";
       this._emit();
       this._emitStatus();
       op.reject(new Error(this.lastError));
