@@ -1,11 +1,13 @@
 // Kazde konto ma swoje dane; urzadzenia na tym samym koncie widza to samo.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login, newContext, closeExtraContexts } from "./helpers.js";
 
 const LEGACY = {
   todo_lists: [{ id: "l1", name: "Moja stara lista", tasks: [{ id: "t1", text: "Stare zadanie", done: false }] }],
   shopping_list: [{ text: "Mleko", checked: false }],
 };
+
+test.afterEach(async () => { await closeExtraContexts(); });
 
 test.beforeEach(async ({ request }) => {
   await resetDb(request, LEGACY);
@@ -13,7 +15,7 @@ test.beforeEach(async ({ request }) => {
   await request.post(DB + "/__auth?mode=peruser&owner=uid-ja");
 });
 
-const ctx = async (browser, phone = false) => (await browser.newContext({
+const ctx = async (browser, phone = false) => (await newContext(browser, {
   ...(phone ? devices["Pixel 7"] : { viewport: { width: 1280, height: 800 } }), locale: "pl-PL", timezoneId: "Europe/Warsaw",
 })).newPage();
 
@@ -96,7 +98,7 @@ test("wyczyszczona lista nie wraca ze starych danych przy kolejnym logowaniu", a
 test("kilka kart naraz: jedno połączenie na kartę, wszystkie się łączą (limit przeglądarki)", async ({ browser, request }) => {
   // osobne konto, zeby liczyc tylko polaczenia z tego testu
   const mine = async () => (await (await request.get(DB + "/__streams")).json()).filter((s) => s === "users/uid-karty").length;
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" });
+  const context = await newContext(browser, { viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" });
   const first = await context.newPage();
   await signIn(first, "karty@example.com");
   const tabs = [first];

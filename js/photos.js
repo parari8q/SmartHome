@@ -3,14 +3,18 @@
 // zdjecie pobiera sie tylko wtedy, gdy jest potrzebne.
 
 import { FIREBASE_DB_URL } from "./config.js";
-import { auth, currentUid } from "./store.js";
+import { auth, currentUid, currentSpace } from "./store.js";
 
 const cache = new Map(); // "<uid>/<id>@<wersja>" -> Promise<dataUrl|null>
 
+function photoBase() {
+  const sp = currentSpace();
+  return sp.kind === "group" ? `groups/${sp.gid}/photos` : `recipe_photos/${encodeURIComponent(currentUid() || "shared")}`;
+}
+
 async function url(recipeId) {
   const token = await auth.getToken();
-  const owner = currentUid() || "shared";
-  return `${FIREBASE_DB_URL}/recipe_photos/${encodeURIComponent(owner)}/${encodeURIComponent(recipeId)}.json` +
+  return `${FIREBASE_DB_URL}/${photoBase()}/${encodeURIComponent(recipeId)}.json` +
     (token ? "?auth=" + encodeURIComponent(token) : "");
 }
 
@@ -18,7 +22,7 @@ async function url(recipeId) {
 export function getRecipePhoto(recipe) {
   if (!recipe) return Promise.resolve(null);
   if (!recipe.photo) return Promise.resolve(recipe.image || null);
-  const key = `${currentUid()}/${recipe.id}@${recipe.photo}`;
+  const key = `${photoBase()}/${recipe.id}@${recipe.photo}`;
   if (!cache.has(key)) {
     cache.set(key, url(recipe.id)
       .then((u) => fetch(u))
@@ -38,7 +42,7 @@ export async function saveRecipePhoto(recipeId, dataUrl) {
       : "Nie udało się zapisać zdjęcia (HTTP " + res.status + ").");
   }
   const version = Date.now();
-  cache.set(`${currentUid()}/${recipeId}@${version}`, Promise.resolve(dataUrl));
+  cache.set(`${photoBase()}/${recipeId}@${version}`, Promise.resolve(dataUrl));
   return version;
 }
 

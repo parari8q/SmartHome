@@ -54,22 +54,26 @@ npm run serve         # podgląd lokalny: http://localhost:8080/dashboard.html (
 Testy e2e nie dotykają prawdziwej bazy: używają lokalnej atrapy Firebase (`tests/e2e/fake-firebase.js`).
 Uruchamiają się też automatycznie na GitHubie przy każdym pushu (zakładka Actions).
 
-## Konta i prywatność
+## Konta, grupy i prywatność
 
-Każde konto ma **własne dane** (w bazie pod `users/<uid>/...`). Wszystkie urządzenia zalogowane
-na to samo konto widzą te same dane na żywo; inne konto ma swoje, osobne dane.
-Logowanie raz na urządzeniu: Ustawienia → Konto.
+- **Bez grupy** każde konto ma własne dane (`users/<uid>/...`), wspólne dla wszystkich jego urządzeń.
+- **Grupa** (Ustawienia → Grupa) to kilka osób na wspólnych danych: przepisach, zakupach, zadaniach
+  i kalendarzu (`groups/<id>/data/...`). Zakładający dostaje kod lub link zaproszenia, a jego
+  dotychczasowe dane kopiują się do grupy. Jedna osoba należy do jednej grupy naraz. Po opuszczeniu
+  grupy wraca do swoich osobistych danych.
+- Nowe konta dodajesz w Firebase → Authentication → Add user (samodzielne zakładanie kont jest wyłączone).
 
-Dotychczasowe dane (z czasów bez kont) przy pierwszym logowaniu właściciela kopiują się
-automatycznie na jego konto. Oryginał zostaje w bazie jako kopia zapasowa.
+### Powiadomienia (ntfy)
 
-### Konfiguracja (konsola Firebase, projekt `smarthome-cdd0e`)
+Gdy ktoś z grupy coś doda (zakupy, kalendarz, zadania, opcjonalnie przepisy), pozostałe osoby
+dostają powiadomienie na telefon przez darmową aplikację **ntfy**, także gdy dashboard jest zamknięty.
+Każda osoba ma własny temat, więc nie dostaje powiadomień o swoich zmianach. Konfiguracja:
+Ustawienia → Powiadomienia (na Androidzie przycisk „Włącz w ntfy”, na iPhonie wpisanie tematu).
+Treść powiadomień przechodzi przez publiczny serwer ntfy.sh. Temat jest długi i losowy, więc działa jak hasło.
 
-1. **Authentication → Sign-in method → Email/Password → Enable**.
-2. **Authentication → Users → Add user** — po jednym na osobę. UID właściciela przyda się w regułach.
-3. **Authentication → Settings → User actions**: odznacz **Enable create (sign-up)**
-   (nowe konta dodajesz tylko Ty, ręcznie).
-4. **Realtime Database → Rules** (podmień `TWOJE_UID`) → **Publish**:
+### Reguły bazy (Firebase → Realtime Database → Rules)
+
+Podmień `TWOJE_UID` (w 4 miejscach na dole, tylko do jednorazowego przeniesienia starych danych):
 
 ```json
 {
@@ -86,6 +90,26 @@ automatycznie na jego konto. Oryginał zostaje w bazie jako kopia zapasowa.
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "groups": {
+      "$gid": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        "info": {
+          ".write": "auth != null && ((!data.exists() && newData.child('owner').val() === auth.uid) || data.child('owner').val() === auth.uid)"
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (root.child('groups').child($gid).child('info/owner').val() === auth.uid || ($uid === auth.uid && (!newData.exists() || newData.val() === root.child('groups').child($gid).child('info/invite').val())))"
+          }
+        },
+        "profiles": {
+          "$uid": {
+            ".write": "auth != null && (($uid === auth.uid && root.child('groups').child($gid).child('members').child(auth.uid).exists()) || root.child('groups').child($gid).child('info/owner').val() === auth.uid)"
+          }
+        },
+        "data": { ".write": "auth != null && root.child('groups').child($gid).child('members').child(auth.uid).exists()" },
+        "photos": { ".write": "auth != null && root.child('groups').child($gid).child('members').child(auth.uid).exists()" }
+      }
+    },
     "todo_lists":      { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
     "calendar_events": { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
     "recipes_data":    { ".read": "auth != null && auth.uid === 'TWOJE_UID'" },
@@ -94,6 +118,6 @@ automatycznie na jego konto. Oryginał zostaje w bazie jako kopia zapasowa.
 }
 ```
 
-Pierwsza część: każdy czyta i zapisuje tylko swoją przestrzeń. Druga: stare, wspólne dane może
-odczytać tylko właściciel (do jednorazowego przeniesienia). Nowe konto dodane w Authentication
-działa od razu, bez zmian w regułach.
+Co robią: każdy czyta i zapisuje tylko swoje dane osobiste. Dane grupy widzą i zmieniają tylko jej
+członkowie. Do grupy można dołączyć wyłącznie z aktualnym kodem zaproszenia. Usuwać innych, zmieniać
+nazwę i kod może tylko zakładający.

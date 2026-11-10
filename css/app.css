@@ -478,3 +478,18 @@ details.more[open] { display: flex; flex-direction: column; gap: 8px; }
 .step-num { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--primary-text); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 .view-body.cooking .ingredients li, .view-body.cooking .steps li { font-size: 19px; }
 .view-body.cooking .step-num { width: 32px; height: 32px; font-size: 15px; }
+
+/* ----- ustawienia: grupa i powiadomienia ----- */
+.card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius); background: var(--glass); }
+.card p { font-size: 14px; line-height: 1.5; color: var(--text-2); }
+.group-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.group-name { font-family: var(--font-display); font-size: 20px; font-weight: 500; }
+.member { background: rgba(0, 0, 0, 0.18); }
+.avatar { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--primary-text); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.invite { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; background: rgba(0, 0, 0, 0.3); padding: 6px 10px; border-radius: 8px; user-select: all; word-break: break-all; }
+.steps-mini { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+.steps-mini a:not(.btn) { color: var(--accent); }
+.notify-prefs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.notify-prefs .row { min-height: 44px; background: rgba(0, 0, 0, 0.18); }
+.link-btn.btn-danger-text { color: var(--danger); }

@@ -8,6 +8,7 @@ import { addEvent } from "../logic/calendar.js";
 import { mergeShopping } from "../logic/recipes.js";
 import { h, ICONS } from "../lib/dom.js";
 import { parseDateKey } from "../lib/util.js";
+import { notifyGroup } from "../notify.js";
 
 let recognition = null;
 let listening = false;
@@ -27,15 +28,18 @@ export function runCommand(text, now = new Date()) {
   if (cmd.type === "calendar") {
     store.calendar.set(cmd.dateKey, addEvent(store.calendar.value, cmd.dateKey, { time: cmd.time, title: cmd.title }));
     const label = parseDateKey(cmd.dateKey).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+    notifyGroup("calendar", `${cmd.title} — ${label}${cmd.time ? ", " + cmd.time : ""}`);
     return { cmd, message: `📅 „${cmd.title}” — ${label}${cmd.time ? ", " + cmd.time : ""}` };
   }
   if (cmd.type === "todo") {
     const r = addTaskToNamedList(store.todo.value, cmd.list, cmd.text);
     store.todo.set("", r.lists);
+    notifyGroup("todo", `${cmd.text} (${cmd.list})`);
     return { cmd, message: `✅ „${cmd.text}” → ${cmd.list}${r.created ? " (nowa lista)" : ""}` };
   }
   if (cmd.type === "shopping") {
     store.shopping.set("", mergeShopping(store.shopping.value, cmd.items.map((text) => ({ text }))));
+    for (const t of cmd.items) notifyGroup("shopping", t);
     return { cmd, message: `🛒 Do zakupów: ${cmd.items.join(", ")}` };
   }
   return { cmd, message: `Nie zrozumiałem: „${text}”. Spróbuj np. „dentysta jutro o 15”, „dodaj mleko do zakupów”.` };

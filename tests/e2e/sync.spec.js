@@ -1,12 +1,14 @@
 // Najwazniejsze wymaganie: komputer i telefon widza te same dane na zywo.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, newContext, closeExtraContexts } from "./helpers.js";
+
+test.afterEach(async () => { await closeExtraContexts(); });
 
 test.beforeEach(async ({ request }) => { await resetDb(request); });
 
 async function twoDevices(browser) {
-  const pc = await (await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
-  const phone = await (await browser.newContext({ ...devices["Pixel 7"], locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
+  const pc = await (await newContext(browser, { viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
+  const phone = await (await newContext(browser, { ...devices["Pixel 7"], locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
   await openApp(pc);
   await openApp(phone);
   return { pc, phone };

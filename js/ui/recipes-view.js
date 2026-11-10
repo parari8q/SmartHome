@@ -9,6 +9,7 @@ import { getRecipePhoto, saveRecipePhoto, deleteRecipePhoto, compressImage } fro
 import { h, clear, ICONS, iconButton, emptyState, confirmDialog, promptDialog, toast } from "../lib/dom.js";
 import { plural, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
+import { notifyGroup } from "../notify.js";
 
 let shell;
 let screen = "categories";
@@ -184,6 +185,7 @@ const SCREENS = {
           const before = shopping().length;
           const next = R.mergeShopping(shopping(), r.ingredients.filter((x) => !R.isHeader(x)).map((text) => ({ text })));
           saveShopping(next);
+          if (next.length > before) notifyGroup("shopping", `składniki do „${r.name}” (${next.length - before})`);
           toast(`Dodano do listy zakupów: ${next.length - before}`);
         } }, "Dodaj składniki do zakupów"),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => go("move") }, "Przenieś do innej kategorii"),
@@ -220,7 +222,10 @@ const SCREENS = {
     const genBtn = h("button", { type: "button", class: "btn btn-primary btn-block" });
     const updateBtn = () => { genBtn.textContent = selection.size ? `Dodaj składniki z ${selection.size} do listy` : "Zaznacz przepisy"; genBtn.disabled = !selection.size; };
     genBtn.addEventListener("click", () => {
-      saveShopping(R.mergeShopping(shopping(), R.buildShoppingList(all, selection)));
+      const before = shopping().length;
+      const next = R.mergeShopping(shopping(), R.buildShoppingList(all, selection));
+      saveShopping(next);
+      for (const it of next.slice(before)) notifyGroup("shopping", it.text);
       selection = new Set();
       go("shoppingList");
     });
@@ -257,7 +262,10 @@ const SCREENS = {
     const add = () => {
       const v = input.value.trim();
       if (!v) return;
-      saveShopping(R.mergeShopping(shopping(), v.split(",").map((text) => ({ text }))));
+      const before = shopping().length;
+      const next = R.mergeShopping(shopping(), v.split(",").map((text) => ({ text })));
+      saveShopping(next);
+      for (const it of next.slice(before)) notifyGroup("shopping", it.text);
       input.value = "";
       input.focus();
     };
@@ -477,6 +485,7 @@ function renderForm() {
       if (target.catId !== catId || target.scId !== scId) d = R.moveRecipe(d, { catId, scId }, target, id);
     } else {
       d = R.addRecipe(d, target.catId, target.scId, fields, id);
+      notifyGroup("recipes", fields.name);
     }
     saveRecipes(d);
     clearDraft();

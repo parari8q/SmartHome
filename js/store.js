@@ -1,20 +1,21 @@
 // Wszystkie dane synchronizowane miedzy urzadzeniami w jednym miejscu.
 //
-// Zalogowany uzytkownik ma WLASNA przestrzen w bazie: users/<uid>/todo_lists itd.
-// Wszystkie urzadzenia zalogowane na to samo konto widza te same dane;
-// inne konto = inne dane. Bez logowania (tylko przy otwartej bazie) uzywane
-// jest stare, wspolne miejsce w glownym katalogu bazy.
+// Gdzie sa dane:
+//   * uzytkownik w grupie  -> groups/<gid>/data/...  (wspolne dla calej grupy)
+//   * uzytkownik bez grupy -> users/<uid>/...        (tylko jego, na wszystkich jego urzadzeniach)
+//   * bez logowania        -> stare miejsce w glownym katalogu (tylko przy otwartej bazie)
 
-import { DB_PATHS, FIREBASE_DB_URL, FIREBASE_API_KEY } from "./config.js";
+import { DB_PATHS, FIREBASE_DB_URL } from "./config.js";
 import { SyncedDoc, combineStatus } from "./lib/firebase-sync.js";
-import { FirebaseAuth } from "./lib/auth.js";
+import { auth } from "./db.js";
+import { loadGroup } from "./groups.js";
 import { migrateLegacyData } from "./lib/migrate.js";
 import { createSharedEventSource } from "./lib/shared-stream.js";
 import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
 import { normalizeRecipes, normalizeShopping } from "./logic/recipes.js";
 
-export const auth = new FirebaseAuth({ apiKey: FIREBASE_API_KEY });
+export { auth };
 
 let authRequiredListeners = new Set();
 let authRequiredTimer = null;
@@ -26,7 +27,7 @@ function authRequired() {
 }
 
 // jedno polaczenie z cala przestrzenia konta zamiast 5 (limit polaczen przegladarki)
-const SharedEventSource = createSharedEventSource({ getBase: () => (activeUid ? `users/${activeUid}` : null) });
+const SharedEventSource = createSharedEventSource({ getBase: () => space.base });
 
 const make = (path, normalize) => new SyncedDoc({
   baseUrl: FIREBASE_DB_URL, path, normalize,
@@ -42,11 +43,30 @@ export const store = {
   shopping: make(DB_PATHS.shopping, normalizeShopping),
 };
 
-export function pathFor(key, uid) {
-  return uid ? `users/${uid}/${DB_PATHS[key]}` : DB_PATHS[key];
+let activeUid; // undefined = jeszcze nie uruchomiono
+let space = { kind: "legacy", base: null };
+const spaceListeners = new Set();
+
+/** Aktualne miejsce danych: { kind: "legacy" | "personal" | "group", base, gid? } */
+export function currentSpace() { return space; }
+export function onSpaceChange(fn) { spaceListeners.add(fn); return () => spaceListeners.delete(fn); }
+
+function pathFor(key) {
+  return space.base ? `${space.base}/${DB_PATHS[key]}` : DB_PATHS[key];
 }
 
-let activeUid; // undefined = jeszcze nie uruchomiono
+async function resolveSpace(uid) {
+  if (!uid) return { kind: "legacy", base: null };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const group = await loadGroup(uid);
+      return group ? { kind: "group", gid: group.id, base: `groups/${group.id}/data` } : { kind: "personal", base: `users/${uid}` };
+    } catch {
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); // brak sieci — chwila i jeszcze raz
+    }
+  }
+  return { kind: "personal", base: `users/${uid}` };
+}
 
 /** Przelacz dane na przestrzen danego konta (albo stara wspolna, gdy null). */
 async function activate(uid) {
@@ -61,15 +81,21 @@ async function activate(uid) {
       console.warn("Przenoszenie danych nie powiodło się (spróbuję następnym razem):", err);
     }
   }
+  const next = await resolveSpace(uid);
   if (activeUid !== uid) return; // w miedzyczasie zmienil sie uzytkownik
+  space = next;
+  for (const fn of spaceListeners) { try { fn(space); } catch (e) { console.error(e); } }
   for (const [key, doc] of Object.entries(store)) {
-    const path = pathFor(key, uid);
+    const path = pathFor(key);
     if (doc.path.join("/") === path) { doc.connect(); doc.retryNow(); }
     else doc.setPath(path);
   }
 }
 
 export function currentUid() { return activeUid || null; }
+
+/** Po zalozeniu/dolaczeniu/opuszczeniu grupy: przelacz dane. */
+export function refreshSpace() { return activate(activeUid); }
 
 export function connectAll() {
   activate(auth.uid);
