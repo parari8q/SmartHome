@@ -1,0 +1,15 @@
+{
+  "name": "smarthome-dashboard",
+  "private": true,
+  "type": "module",
+  "description": "Domowy dashboard (pogoda, zadania, kalendarz, witaminy, przepisy, Spotify) synchronizowany przez Firebase",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "serve": "node tests/e2e/static-server.js 8080"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
