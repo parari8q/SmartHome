@@ -13,14 +13,14 @@ wystarczy wrzucić pliki).
 |---|---|
 | `dashboard.html` | szkielet strony |
 | `css/app.css` | wygląd |
-| `js/config.js` | **ustawienia** (miasto, adres bazy, Spotify, kafelki-linki) |
+| `js/config.js` | **ustawienia** (miasto, adres bazy) |
 | `js/lib/firebase-sync.js` | synchronizacja z bazą (odczyt na żywo, zapisy, ponawianie bez sieci) |
-| `js/logic/*.js` | logika bez interfejsu: zadania, kalendarz, witaminy, przepisy, pogoda, rozumienie mowy |
+| `js/logic/*.js` | logika bez interfejsu: zadania, kalendarz, przepisy, pogoda, rozumienie mowy |
 | `js/ui/*.js` | poszczególne ekrany |
 | `js/logic/recipe-parser.js` | rozpoznawanie przepisu z tekstu (nazwa, porcje, czas, składniki, kroki) |
 | `js/lib/ocr.js` | odczyt tekstu ze screenów/zdjęć (w przeglądarce, nic nie jest wysyłane na zewnątrz) |
 
-Format danych w bazie się nie zmienił (`todo_lists`, `calendar_events`, `supplements_log`,
+Format danych w bazie się nie zmienił (`todo_lists`, `calendar_events`,
 `recipes_data`, `shopping_list`), więc wszystkie stare dane działają.
 
 ## Przepisy — szybkie dodawanie
