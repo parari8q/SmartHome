@@ -1,6 +1,7 @@
 // Start aplikacji.
 
-import { connectAll, onSyncStatus } from "./store.js";
+import { connectAll, onSyncStatus, onAuthRequired } from "./store.js";
+import { showLogin } from "./ui/login.js";
 import { installGestures, openMenu, closeMenu, openView } from "./ui/router.js";
 import { initLayout } from "./ui/layout.js";
 import { initHome, setSyncStatus } from "./ui/home.js";
@@ -23,6 +24,7 @@ document.getElementById("menu-close").addEventListener("click", closeMenu);
 document.getElementById("sync").addEventListener("click", () => openView("settings"));
 
 onSyncStatus((status) => setSyncStatus(status));
+onAuthRequired(() => showLogin());
 connectAll();
 initHome();
 

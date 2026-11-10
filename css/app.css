@@ -100,7 +100,7 @@ button.sync-dot::after {
 .sync-live { --dot: var(--ok); background: var(--ok); }
 .sync-saving, .sync-connecting { --dot: var(--warn); background: var(--warn); }
 .sync-offline, .sync-warning { --dot: #fb923c; background: #fb923c; }
-.sync-error { --dot: var(--danger); background: var(--danger); }
+.sync-error, .sync-auth { --dot: var(--danger); background: var(--danger); }
 button.sync-dot { background: transparent; }
 .sync-saving::after, .sync-connecting::after { animation: pulse 1.2s ease-in-out infinite; }
 
@@ -293,7 +293,7 @@ html[data-layout="portrait"] .today-panel { align-self: start; overflow: visible
 .input-bar { display: flex; gap: 8px; align-items: center; }
 .input-bar input[type="text"], .input-bar input:not([type]) { flex: 1; min-width: 0; }
 
-input[type="text"], input[type="search"], input[type="time"], input:not([type]), textarea, select {
+input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="time"], input:not([type]), textarea, select {
   width: 100%; min-height: 44px; padding: 10px 14px;
   background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); border-radius: var(--radius-sm);
   outline: none; transition: border-color 0.2s ease, background 0.2s ease;
@@ -452,3 +452,11 @@ button.day:active:not(:disabled) { transform: scale(0.94); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ----- logowanie ----- */
+.login-backdrop { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 8, 14, 0.7); backdrop-filter: blur(18px); animation: fade 0.2s ease; }
+.login-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 26px 22px 14px; border-radius: 22px; background: #161c2a; border: 1px solid var(--line); animation: rise 0.2s ease; }
+.login-card h2 { font-family: var(--font-display); font-weight: 500; font-size: 22px; }
+.login-icon svg { width: 30px; height: 30px; color: var(--accent); }
+.login-error:not(:empty) { color: #fca5a5; font-size: 13px; }
+.login-card .btn-block { margin-top: 6px; }

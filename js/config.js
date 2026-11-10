@@ -15,6 +15,10 @@ export const CONFIG = {
 export const FIREBASE_DB_URL = testOverrides.dbUrl ||
   "https://smarthome-cdd0e-default-rtdb.europe-west1.firebasedatabase.app";
 
+// Klucz Web API projektu Firebase (do logowania). To publiczny identyfikator,
+// nie haslo — bezpieczenstwo zapewniaja reguly bazy (patrz README).
+export const FIREBASE_API_KEY = testOverrides.apiKey || "AIzaSyDPdkQ1DXOwXW2R5c2FIMiwEmHujrXuCkU";
+
 // Sciezki w bazie (NIE zmieniac — tam sa Twoje dane).
 export const DB_PATHS = {
   todo: "todo_lists",

@@ -158,10 +158,10 @@ test("blad serwera cofa zmiane i pokazuje komunikat", async () => {
   const { doc, es, responders } = setup();
   es.emit("put", "/", ["a"]);
   const p = doc.set("", ["a", "b"]);
-  responders[0].resolve({ ok: false, status: 401, text: async () => "Permission denied" });
-  await assert.rejects(p, /HTTP 401/);
+  responders[0].resolve({ ok: false, status: 500, text: async () => "Internal boom" });
+  await assert.rejects(p, /HTTP 500/);
   assert.deepEqual(doc.value, ["a"]);
-  assert.match(doc.getState().error, /Permission denied/);
+  assert.match(doc.getState().error, /Internal boom/);
 });
 
 test("brak sieci: zmiana zostaje, zapis ponawiany az do skutku", async () => {
@@ -235,4 +235,85 @@ test("laczny status", () => {
   assert.equal(combineStatus({ a: live, b: { ...live, connection: "offline" } }), "offline");
   assert.equal(combineStatus({ a: { ...live, loaded: false, connection: "connecting" } }), "connecting");
   assert.equal(combineStatus({ a: { ...live, error: "x" } }), "warning");
+});
+
+// ---------------------------------------------------------------- logowanie
+
+function setupAuth({ token = "tok1", probeStatus = 401 } = {}) {
+  const calls = [];
+  const clock = makeTimers();
+  let authRequired = 0;
+  const tokens = [];
+  const doc = new SyncedDoc({
+    baseUrl: "https://db.example", path: "todo_lists", EventSourceImpl: FakeES, timers: clock.timers, now: clock.now,
+    fetchImpl: async (url, opts) => { calls.push({ url, ...opts }); return url.includes("shallow") ? { status: probeStatus, ok: probeStatus < 300 } : ok; },
+    getAuthToken: async ({ force }) => { tokens.push(force); return typeof token === "function" ? token(force) : token; },
+    onAuthRequired: () => authRequired++,
+  });
+  return { doc, calls, clock, tokens, get authRequired() { return authRequired; } };
+}
+
+test("logowanie: token trafia do strumienia i do zapisow", async () => {
+  const t = setupAuth();
+  t.doc.connect();
+  await tick();
+  assert.equal(FakeES.last.url, "https://db.example/todo_lists.json?auth=tok1");
+  FakeES.last.emit("put", "/", []);
+  await t.doc.set("", ["x"]);
+  assert.equal(t.calls[0].url, "https://db.example/todo_lists.json?auth=tok1");
+});
+
+test("logowanie: odmowa dostepu (401) -> jedna proba ze swiezym tokenem, potem prosba o logowanie", async () => {
+  const t = setupAuth({ token: (force) => (force ? "fresh" : "old") });
+  t.doc.connect();
+  await tick();
+  FakeES.last.readyState = 2;
+  FakeES.last.onerror();
+  await tick(); await tick();
+  assert.equal(FakeES.last.url, "https://db.example/todo_lists.json?auth=fresh", "ponowienie ze swiezym tokenem");
+  FakeES.last.readyState = 2;
+  FakeES.last.onerror();
+  await tick(); await tick();
+  assert.equal(t.authRequired, 1);
+  assert.equal(t.doc.getState().connection, "auth");
+  assert.equal(combineStatus({ a: t.doc.getState() }), "auth");
+});
+
+test("logowanie: zerwanie przez siec (nie 401) -> zwykle ponowne laczenie", async () => {
+  const t = setupAuth({ probeStatus: 200 });
+  t.doc.connect();
+  await tick();
+  const first = FakeES.last;
+  first.readyState = 2;
+  first.onerror();
+  await tick(); await tick();
+  assert.equal(t.authRequired, 0);
+  t.clock.advance(2000);
+  await tick();
+  assert.notEqual(FakeES.last, first);
+});
+
+test("logowanie: wygasly token w strumieniu (auth_revoked) -> nowe polaczenie z odswiezonym tokenem", async () => {
+  const t = setupAuth();
+  t.doc.connect();
+  await tick();
+  const first = FakeES.last;
+  first.handlers.auth_revoked[0]({ data: "null" });
+  await tick();
+  assert.notEqual(FakeES.last, first);
+  assert.deepEqual(t.tokens, [false, true]);
+});
+
+test("logowanie: zapis odrzucony 401 cofa zmiane i prosi o logowanie", async () => {
+  const clock = makeTimers();
+  let asked = 0;
+  const doc = new SyncedDoc({ baseUrl: "https://db.example", path: "x", EventSourceImpl: FakeES, timers: clock.timers, now: clock.now,
+    fetchImpl: async () => ({ ok: false, status: 401, text: async () => "Permission denied" }),
+    getAuthToken: async () => null, onAuthRequired: () => asked++ });
+  doc.connect();
+  await tick();
+  FakeES.last.emit("put", "/", ["a"]);
+  await assert.rejects(doc.set("", ["a", "b"]), /zaloguj/);
+  assert.deepEqual(doc.value, ["a"]);
+  assert.equal(asked, 1);
 });

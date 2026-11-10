@@ -30,7 +30,12 @@ export class SyncedDoc {
     now,
     ackTimeoutMs = 4000,
     staleAfterMs = 90000,
+    getAuthToken = null,   // async ({force}) => token | null  (logowanie Firebase)
+    onAuthRequired = null, // wywolywane, gdy baza odmawia dostepu
   }) {
+    this.getAuthToken = getAuthToken;
+    this.onAuthRequired = onAuthRequired;
+    this._connectSeq = 0;
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.path = splitPath(path);
     this.normalize = normalize;
@@ -61,9 +66,15 @@ export class SyncedDoc {
 
   // ----- adresy -------------------------------------------------------------
 
-  url(subPath = []) {
+  url(subPath = [], token = null, extra = "") {
     const parts = [...this.path, ...splitPath(subPath)].map(encodeURIComponent);
-    return this.baseUrl + "/" + parts.join("/") + ".json";
+    const query = [token ? "auth=" + encodeURIComponent(token) : "", extra].filter(Boolean).join("&");
+    return this.baseUrl + "/" + parts.join("/") + ".json" + (query ? "?" + query : "");
+  }
+
+  async _token(force = false) {
+    if (!this.getAuthToken) return null;
+    try { return await this.getAuthToken({ force }); } catch { return null; }
   }
 
   // ----- stan widoczny dla aplikacji --------------------------------------
@@ -123,15 +134,23 @@ export class SyncedDoc {
 
   // ----- odczyt (strumien SSE) ---------------------------------------------
 
-  connect() {
+  connect({ forceToken = false } = {}) {
+    if (this._reconnectTimer) { this.timers.clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+    const seq = ++this._connectSeq;
+    if (!this.getAuthToken) return this._open(null, seq);
+    this._token(forceToken).then((token) => { if (seq === this._connectSeq) this._open(token, seq); });
+  }
+
+  _open(token, seq) {
     if (this.es) { try { this.es.close(); } catch {} }
+    this._streamToken = token;
     if (!this.EventSource) {
       this.connection = "error";
       this.lastError = "Przeglądarka nie obsługuje EventSource";
       this._emitStatus();
       return;
     }
-    const es = new this.EventSource(this.url());
+    const es = new this.EventSource(this.url([], token));
     this.es = es;
     this.lastEventAt = this.now();
 
@@ -139,16 +158,14 @@ export class SyncedDoc {
     es.addEventListener("put", handle("put"));
     es.addEventListener("patch", handle("patch"));
     es.addEventListener("keep-alive", () => { this.lastEventAt = this.now(); });
-    es.addEventListener("cancel", () => {
-      this.connection = "error";
-      this.lastError = "Baza odrzuciła połączenie (brak uprawnień?)";
-      this._emitStatus();
-    });
+    // baza przestala nas wpuszczac (np. zmiana regul) albo token wygasl
+    es.addEventListener("cancel", () => { if (this.es === es) this._handleDenied(); });
+    es.addEventListener("auth_revoked", () => { if (this.es === es) this.connect({ forceToken: true }); });
     es.onerror = () => {
       if (this.es !== es) return;
-      this.connection = "offline";
+      if (this.connection !== "auth") this.connection = "offline";
       this._emitStatus();
-      if (es.readyState === CLOSED) this._scheduleReconnect();
+      if (es.readyState === CLOSED) this.getAuthToken ? this._probeAccess(seq) : this._scheduleReconnect();
     };
   }
 
@@ -160,14 +177,44 @@ export class SyncedDoc {
 
     this.server = applyFirebaseEvent(this.server, type, payload.path, payload.data);
     this.loaded = true;
+    this._retriedWithFreshToken = false;
     this._reconnectDelay = 0;
     if (this.connection !== "live") {
       this.connection = "live";
       if (this.lastError && !this.pendingCount) this.lastError = null;
     }
+    // dane przyszly = dostep jest (np. zaraz po zalogowaniu)
+    if (this.lastError && this.lastError.startsWith("Brak dostępu")) this.lastError = null;
     this._pruneAcked();
     this._emit();
     this._emitStatus();
+  }
+
+  /** Strumien zamkniety przez serwer — sprawdzamy, czy to brak dostepu
+   *  (401), czy zwykly problem z siecia. */
+  async _probeAccess(seq) {
+    let status = 0;
+    try {
+      const token = await this._token();
+      status = (await this.fetch(this.url([], token, "shallow=true"), { method: "GET" })).status;
+    } catch { /* brak sieci */ }
+    if (seq !== this._connectSeq) return;
+    if (status === 401 || status === 403) this._handleDenied();
+    else this._scheduleReconnect();
+  }
+
+  _handleDenied() {
+    if (this.es) { try { this.es.close(); } catch {} this.es = null; }
+    // raz probujemy ze swiezym tokenem (mogl wlasnie wygasnac)
+    if (this._streamToken && !this._retriedWithFreshToken) {
+      this._retriedWithFreshToken = true;
+      this.connect({ forceToken: true });
+      return;
+    }
+    this.connection = "auth";
+    this.lastError = "Brak dostępu do bazy — zaloguj się";
+    this._emitStatus();
+    this.onAuthRequired?.();
   }
 
   _scheduleReconnect() {
@@ -231,7 +278,8 @@ export class SyncedDoc {
     let res;
     try {
       const isDelete = op.value === null;
-      res = await this.fetch(this.url(op.parts), isDelete
+      const token = this.getAuthToken ? await this._token() : null;
+      res = await this.fetch(this.url(op.parts, token), isDelete
         ? { method: "DELETE" }
         : { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(op.value) });
     } catch (err) {
@@ -253,7 +301,9 @@ export class SyncedDoc {
       let body = "";
       try { body = await res.text(); } catch {}
       this.queue = this.queue.filter((o) => o !== op);
-      this.lastError = `Błąd zapisu (HTTP ${res.status}) ${body.slice(0, 120)}`.trim();
+      const denied = res.status === 401 || res.status === 403;
+      this.lastError = denied ? "Brak dostępu do bazy — zaloguj się" : `Błąd zapisu (HTTP ${res.status}) ${body.slice(0, 120)}`.trim();
+      if (denied) this.onAuthRequired?.();
       this._emit();
       this._emitStatus();
       op.reject(new Error(this.lastError));
@@ -295,6 +345,7 @@ export class SyncedDoc {
 /** Laczny status kilku dokumentow — do kropki "synchronizacja" w rogu. */
 export function combineStatus(states) {
   const list = Object.values(states);
+  if (list.some((s) => s.connection === "auth")) return "auth";
   if (list.some((s) => s.connection === "error")) return "error";
   if (list.some((s) => s.error)) return "warning";
   if (list.some((s) => s.connection === "offline")) return "offline";

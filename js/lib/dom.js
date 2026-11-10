@@ -69,6 +69,7 @@ export const ICONS = {
   volume: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h4l5 5V5L7 10H3z"/></svg>',
   portrait: P('<rect x="6" y="2" width="12" height="20" rx="2"/>'),
   landscape: P('<rect x="2" y="6" width="20" height="12" rx="2"/>'),
+  lock: P('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   image: P('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'),
 };
 

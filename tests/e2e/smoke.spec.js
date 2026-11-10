@@ -48,7 +48,7 @@ test("Escape zamyka widok, a kropka synchronizacji otwiera ustawienia", async ({
   await openApp(page);
   await page.locator("#sync").click();
   await expect(view(page, "settings")).toHaveClass(/open/);
-  await expect(view(page, "settings").locator(".row")).toHaveCount(5);
+  await expect(view(page, "settings").locator(".sync-row")).toHaveCount(5);
   await page.keyboard.press("Escape");
   await expect(view(page, "settings")).not.toHaveClass(/open/);
 });

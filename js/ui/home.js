@@ -142,6 +142,7 @@ const STATUS_TEXT = {
   offline: "Brak połączenia — zmiany zapiszą się po powrocie sieci",
   warning: "Problem z zapisem — szczegóły w Ustawieniach",
   error: "Błąd połączenia z bazą",
+  auth: "Brak dostępu — zaloguj się (Ustawienia)",
 };
 
 export function setSyncStatus(status) {
