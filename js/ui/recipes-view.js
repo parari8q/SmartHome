@@ -9,6 +9,7 @@ import { getRecipePhoto, saveRecipePhoto, deleteRecipePhoto, compressImage } fro
 import { h, clear, ICONS, iconButton, emptyState, confirmDialog, promptDialog, toast } from "../lib/dom.js";
 import { plural, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
+import { notifyGroup } from "../notify.js";
 
 let shell;
 let screen = "categories";
@@ -184,6 +185,7 @@ const SCREENS = {
           const before = shopping().length;
           const next = R.mergeShopping(shopping(), r.ingredients.filter((x) => !R.isHeader(x)).map((text) => ({ text })));
           saveShopping(next);
+          if (next.length > before) notifyGroup("shopping", `składniki do „${r.name}” (${next.length - before})`);
           toast(`Dodano do listy zakupów: ${next.length - before}`);
         } }, "Dodaj składniki do zakupów"),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => go("move") }, "Przenieś do innej kategorii"),
@@ -220,7 +222,10 @@ const SCREENS = {
     const genBtn = h("button", { type: "button", class: "btn btn-primary btn-block" });
     const updateBtn = () => { genBtn.textContent = selection.size ? `Dodaj składniki z ${selection.size} do listy` : "Zaznacz przepisy"; genBtn.disabled = !selection.size; };
     genBtn.addEventListener("click", () => {
-      saveShopping(R.mergeShopping(shopping(), R.buildShoppingList(all, selection)));
+      const before = shopping().length;
+      const next = R.mergeShopping(shopping(), R.buildShoppingList(all, selection));
+      saveShopping(next);
+      for (const it of next.slice(before)) notifyGroup("shopping", it.text);
       selection = new Set();
       go("shoppingList");
     });
@@ -257,7 +262,10 @@ const SCREENS = {
     const add = () => {
       const v = input.value.trim();
       if (!v) return;
-      saveShopping(R.mergeShopping(shopping(), v.split(",").map((text) => ({ text }))));
+      const before = shopping().length;
+      const next = R.mergeShopping(shopping(), v.split(",").map((text) => ({ text })));
+      saveShopping(next);
+      for (const it of next.slice(before)) notifyGroup("shopping", it.text);
       input.value = "";
       input.focus();
     };
@@ -355,7 +363,11 @@ function renderForm() {
   const rawText = h("textarea", { id: "recipe-raw", rows: 6, placeholder: "Wklej tu tekst przepisu (ze strony, Worda, wiadomości)…" });
   const rawBox = h("div", { class: "raw-box", hidden: true }, rawText,
     h("div", { class: "button-row" },
-      h("button", { type: "button", class: "btn btn-primary", id: "recipe-parse", onclick: () => applyParsed(rawText.value) }, "Rozpoznaj składniki i kroki"),
+      h("button", { type: "button", class: "btn btn-primary", id: "recipe-parse", onclick: () => {
+        // ponowne rozpoznanie poprawionego tekstu zastepuje skladniki i kroki zamiast je dublowac
+        if (rawText.dataset.fromImport) { ingredients.value = ""; steps.value = ""; }
+        applyParsed(rawText.value);
+      } }, "Rozpoznaj składniki i kroki"),
       h("button", { type: "button", class: "btn btn-ghost", onclick: () => { rawBox.hidden = true; } }, "Zamknij")));
 
   const setProgress = (p, label) => {
@@ -382,6 +394,8 @@ function renderForm() {
     }
     if (parsed.notes && !notes.value.trim()) notes.value = parsed.notes;
     rawText.value = text;
+    const showRaw = document.getElementById("show-raw");
+    if (showRaw) showRaw.hidden = false;
     saveDraft();
     toast(found.length ? `Rozpoznano: ${found.join(", ")} — sprawdź i popraw w razie potrzeby` : "Nie udało się rozpoznać przepisu — popraw tekst poniżej i spróbuj jeszcze raz", 5000);
     if (!found.length) rawBox.hidden = false;
@@ -394,6 +408,7 @@ function renderForm() {
     try {
       const text = await recognizeImages(files, setProgress);
       setProgress(null);
+      rawText.dataset.fromImport = "1";
       applyParsed(text);
     } catch (err) {
       setProgress(null);
@@ -412,7 +427,10 @@ function renderForm() {
         h("span", { class: "icon", html: ICONS.edit }),
         h("span", {}, h("b", {}, "Wklej tekst"), h("small", {}, "ze strony albo wiadomości")))),
     h("p", { class: "hint desktop-only" }, "Na komputerze możesz też wkleić screen skrótem Ctrl+V albo przeciągnąć tu pliki."),
-    progress, rawBox);
+    progress,
+    h("button", { type: "button", class: "link-btn", id: "show-raw", hidden: true, onclick: () => { rawBox.hidden = false; rawText.focus(); } },
+      "Pokaż odczytany tekst (popraw, jeśli coś jest źle, i rozpoznaj ponownie)"),
+    rawBox);
 
   // ---- szkic (zeby nic nie przepadlo przy zamknieciu)
   function collect() {
@@ -467,6 +485,7 @@ function renderForm() {
       if (target.catId !== catId || target.scId !== scId) d = R.moveRecipe(d, { catId, scId }, target, id);
     } else {
       d = R.addRecipe(d, target.catId, target.scId, fields, id);
+      notifyGroup("recipes", fields.name);
     }
     saveRecipes(d);
     clearDraft();

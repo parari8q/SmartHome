@@ -19,7 +19,8 @@ function loadTesseract() {
 export async function preprocess(file) {
   const bitmap = await createImageBitmap(file);
   // screeny telefonu maja ~1080 px szerokosci: Tesseract lubi wiekszy tekst
-  const scale = Math.min(2.5, Math.max(1, 2000 / bitmap.width));
+  // drobny tekst (ulamki "1/5", jednostki "l") Tesseract czyta duzo lepiej w powiekszeniu
+  const scale = Math.min(3, Math.max(1, 2600 / bitmap.width));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
@@ -48,20 +49,40 @@ export async function preprocess(file) {
 }
 
 /** files: lista obrazow (kolejnosc = kolejnosc screenow). onProgress(0..1, opis). */
+let progressHandler = () => {};
+let workerPromise = null;
+
+/** Jeden "pracownik" na sesje: slownik ladowany raz, ustawienia dla przepisow. */
+function getWorker(T) {
+  if (!T.createWorker) return null;
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      const worker = await T.createWorker("pol+eng", 1, { logger: (m) => progressHandler(m) });
+      await worker.setParameters({
+        tessedit_pageseg_mode: "4",      // jedna kolumna o roznych rozmiarach: wiersze tabelki zostaja razem
+        preserve_interword_spaces: "1",
+      });
+      return worker;
+    })().catch((err) => { workerPromise = null; throw err; });
+  }
+  return workerPromise;
+}
+
 export async function recognizeImages(files, onProgress = () => {}) {
   const T = await loadTesseract();
+  const worker = await getWorker(T);
   const texts = [];
   for (let i = 0; i < files.length; i++) {
     const label = files.length > 1 ? `Zdjęcie ${i + 1} z ${files.length}: ` : "";
     onProgress(i / files.length, label + "przygotowanie obrazu…");
     let image = files[i];
     try { image = await preprocess(files[i]); } catch { /* np. HEIC — rozpoznajemy oryginal */ }
-    const { data } = await T.recognize(image, "pol+eng", {
-      logger: (m) => {
-        if (m.status === "recognizing text") onProgress((i + m.progress) / files.length, label + `rozpoznawanie tekstu ${Math.round(m.progress * 100)}%`);
-        else if (/loading|initializ/.test(m.status)) onProgress(i / files.length, label + "pobieranie słownika (tylko za pierwszym razem)…");
-      },
-    });
+    const logger = (m) => {
+      if (m.status === "recognizing text") onProgress((i + m.progress) / files.length, label + `rozpoznawanie tekstu ${Math.round(m.progress * 100)}%`);
+      else if (/loading|initializ/.test(m.status)) onProgress(i / files.length, label + "pobieranie słownika (tylko za pierwszym razem)…");
+    };
+    progressHandler = logger;
+    const { data } = worker ? await worker.recognize(image) : await T.recognize(image, "pol+eng", { logger });
     texts.push(data.text || "");
   }
   onProgress(1, "Gotowe");

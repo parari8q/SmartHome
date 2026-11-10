@@ -5,6 +5,7 @@ import * as T from "../logic/todo.js";
 import { h, clear, ICONS, iconButton, emptyState, confirmDialog, inputBar } from "../lib/dom.js";
 import { plural } from "../lib/util.js";
 import { registerView } from "./router.js";
+import { notifyGroup } from "../notify.js";
 
 let shell;
 let listId = null;    // null = ekran wszystkich list
@@ -91,8 +92,13 @@ registerView({
       id: "todo-input",
       placeholder: "Nazwa nowej listy…",
       onSubmit: (value) => {
-        if (listId) save(T.addTask(lists(), listId, value));
-        else save(T.createList(lists(), value));
+        if (listId) {
+          save(T.addTask(lists(), listId, value));
+          notifyGroup("todo", `${value} (${lists().find((l) => l.id === listId)?.name || "lista"})`);
+        } else {
+          save(T.createList(lists(), value));
+          notifyGroup("todo", `nowa lista „${value}”`);
+        }
       },
     });
     shell.footer.append(bar.el);

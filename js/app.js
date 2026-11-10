@@ -12,7 +12,7 @@ import { importIntoNewRecipe } from "./ui/recipes-view.js";
 import "./ui/todo-view.js";
 import "./ui/calendar-view.js";
 import "./ui/recipes-view.js";
-import "./ui/settings-view.js";
+import { handleInviteLink } from "./ui/settings-view.js";
 
 initLayout();
 renderMenu();
@@ -72,5 +72,6 @@ async function handleSharedFiles() {
   }
 }
 handleSharedFiles();
+handleInviteLink();
 
 window.__app = { openView };

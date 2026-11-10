@@ -242,3 +242,28 @@ test("lista zakupów: z przepisów, ręcznie, odhaczanie i usuwanie kupionych", 
   await v(page).locator(".view-back").click();
   await expect(page.locator("#home-shopping")).toContainText("5 pozycji do kupienia");
 });
+
+test("tabelka ze strony: złe odczytanie ilości można poprawić w odczytanym tekście (bez dublowania)", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__params = null;
+    window.Tesseract = {
+      createWorker: async () => ({
+        setParameters: async (p) => { window.__params = p; },
+        recognize: async () => ({ data: { text: "Zupa z dyni\nSkładniki\ndynia hokkaido 1 kg\nbulion warzywny 1151\nPrzygotowanie\n1. Gotuj 20 minut." } }),
+      }),
+    };
+  });
+  await openApp(page);
+  await openFromMenu(page, "Przepisy");
+  await page.click("#recipe-new");
+  await page.setInputFiles("#import-input", IMG);
+  await expect(page.locator("#recipe-ingredients")).toHaveValue("- dynia hokkaido – 1 kg\n- bulion warzywny – 1151");
+  expect(await page.evaluate(() => window.__params)).toMatchObject({ tessedit_pageseg_mode: "4", preserve_interword_spaces: "1" });
+
+  await page.click("#show-raw");
+  const raw = page.locator("#recipe-raw");
+  await raw.fill((await raw.inputValue()).replace("1151", "1 1/5 l"));
+  await page.click("#recipe-parse");
+  await expect(page.locator("#recipe-ingredients")).toHaveValue("- dynia hokkaido – 1 kg\n- bulion warzywny – 1 1/5 l");
+  await expect(page.locator("#recipe-steps")).toHaveValue("1. Gotuj 20 minut.");
+});

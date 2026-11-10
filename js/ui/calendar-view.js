@@ -5,6 +5,7 @@ import * as C from "../logic/calendar.js";
 import { h, clear, ICONS, iconButton, emptyState } from "../lib/dom.js";
 import { formatDateKey, startOfDay, capitalize } from "../lib/util.js";
 import { registerView } from "./router.js";
+import { notifyGroup } from "../notify.js";
 
 let shell;
 let viewMonth = new Date();
@@ -101,6 +102,7 @@ function submit() {
   const title = titleInput.value.trim();
   if (!title || !dayKey) return;
   saveDay(dayKey, C.addEvent(cal(), dayKey, { time: timeInput.value, title }));
+  notifyGroup("calendar", `${title} — ${C.dayLabel(dayKey).replace(/ \d{4}$/, "")}${timeInput.value ? ", " + timeInput.value : ""}`);
   titleInput.value = "";
   timeInput.value = "";
   titleInput.focus();

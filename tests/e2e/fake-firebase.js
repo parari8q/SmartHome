@@ -98,7 +98,25 @@ export function startFakeFirebase(port = 0) {
       if ((parts[0] === "users" || parts[0] === "recipe_photos") && parts[1] === uid) return true;
       return req.method === "GET" && uid === perUser.owner && LEGACY.includes(parts[0]); // stare dane: tylko odczyt wlasciciela
     };
-    if (perUser ? !allowedPerUser() : (authRequired && !token.startsWith("tok-"))) {
+    // grupy: reguly jak w README
+    const groupVerdict = () => {
+      if (parts[0] !== "groups" || !parts[1]) return null;
+      const uid = token.startsWith("tok-") ? token.slice(4) : null;
+      if (!uid) return false;
+      const g = (data && data.groups && data.groups[parts[1]]) || {};
+      const member = !!(g.members && g.members[uid]);
+      const owner = g.info && g.info.owner === uid;
+      if (req.method === "GET") return member;
+      const value = body ? JSON.parse(body) : null;
+      const sub = parts[2];
+      if (sub === "info") return parts.length === 3 ? (!g.info ? value && value.owner === uid : owner) : owner;
+      if (sub === "members" && parts[3]) return owner || (parts[3] === uid && (req.method === "DELETE" || value === (g.info && g.info.invite)));
+      if (sub === "profiles" && parts[3]) return (parts[3] === uid && (member || owner)) || owner;
+      if (sub === "data" || sub === "photos") return member;
+      return false;
+    };
+    const gv = groupVerdict();
+    if (gv !== null ? !gv : perUser ? !allowedPerUser() : (authRequired && !token.startsWith("tok-"))) {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end('{"error":"Permission denied"}');
     }

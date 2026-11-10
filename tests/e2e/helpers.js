@@ -79,3 +79,15 @@ export async function openFromMenu(page, label) {
 }
 
 export const view = (page, id) => page.locator("#view-" + id);
+
+/** Dodatkowe okna (drugie urzadzenie) zamykane po kazdym tescie — inaczej zostaja
+ *  w tle, lacza sie z baza i spowalniaja kolejne testy. */
+const extraContexts = [];
+export async function newContext(browser, options) {
+  const ctx = await browser.newContext(options);
+  extraContexts.push(ctx);
+  return ctx;
+}
+export async function closeExtraContexts() {
+  for (const c of extraContexts.splice(0)) await c.close().catch(() => {});
+}

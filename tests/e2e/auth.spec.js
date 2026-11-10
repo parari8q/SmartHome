@@ -1,6 +1,8 @@
 // Prywatna baza: dostep tylko po zalogowaniu, dalej wspolne dane na wszystkich urzadzeniach.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login as loginAs } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login as loginAs, newContext, closeExtraContexts } from "./helpers.js";
+
+test.afterEach(async () => { await closeExtraContexts(); });
 
 test.beforeEach(async ({ request }) => {
   await resetDb(request, { todo_lists: [{ id: "l1", name: "Prywatna lista", tasks: [{ id: "t1", text: "Sekret", done: false }] }] });
@@ -45,8 +47,8 @@ test("prywatna baza: bez logowania brak danych, po zalogowaniu wszystko działa 
 
 test("prywatna baza: komputer i telefon po zalogowaniu widzą te same dane na żywo", async ({ browser, request }) => {
   await request.post(DB + "/__auth?required=1");
-  const pc = await (await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
-  const phone = await (await browser.newContext({ ...devices["Pixel 7"], locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
+  const pc = await (await newContext(browser, { viewport: { width: 1280, height: 800 }, locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
+  const phone = await (await newContext(browser, { ...devices["Pixel 7"], locale: "pl-PL", timezoneId: "Europe/Warsaw" })).newPage();
   for (const p of [pc, phone]) { await openApp(p, { expectStatus: "auth" }); await login(p); await expect(p.locator("#sync")).toHaveAttribute("data-status", "live"); }
 
   await openFromMenu(pc, "Zadania");
