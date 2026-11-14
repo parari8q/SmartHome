@@ -13,7 +13,8 @@ import { migrateLegacyData } from "./lib/migrate.js";
 import { createSharedEventSource } from "./lib/shared-stream.js";
 import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
-import { normalizeRecipes, normalizeShopping } from "./logic/recipes.js";
+import { normalizeRecipes } from "./logic/recipes.js";
+import { normalizeShopping } from "./logic/shopping.js";
 
 export { auth };
 

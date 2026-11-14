@@ -267,3 +267,44 @@ test("tabelka ze strony: złe odczytanie ilości można poprawić w odczytanym t
   await expect(page.locator("#recipe-ingredients")).toHaveValue("- dynia hokkaido – 1 kg\n- bulion warzywny – 1 1/5 l");
   await expect(page.locator("#recipe-steps")).toHaveValue("1. Gotuj 20 minut.");
 });
+
+test("zakupy z dwóch przepisów: masło łączy się w jedno, w nawiasie przepisy; zmiana nazwy; łączenie powtórek", async ({ page, request }) => {
+  await resetDb(request, {
+    recipes_data: { categories: [{ id: "c", name: "K", subcategories: [{ id: "s", name: "Obiad", recipes: [
+      { id: "a", name: "Ciasto", ingredients: ["200 g masła", "2 jajka", "mąka"] },
+      { id: "b", name: "Naleśniki", ingredients: ["50 g masła", "1 jajko", "500 ml mleka"] }] }] }] },
+    shopping_list: [{ text: "chleb", checked: false }, { text: "masło", checked: false }, { text: "chleb", checked: false }],
+  });
+  await openApp(page);
+  await openFromMenu(page, "Zakupy");
+
+  // powtorki, ktore juz byly na liscie
+  await expect(page.locator("#shopping-merge")).toContainText("(1)");
+  await page.click("#shopping-merge");
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "masło"]);
+  await expect(page.locator("#shopping-merge")).toHaveCount(0);
+
+  // z dwoch przepisow naraz
+  await v(page).getByRole("button", { name: "Z przepisów" }).click();
+  await v(page).locator(".check-row", { hasText: "Ciasto" }).click();
+  await v(page).locator(".check-row", { hasText: "Naleśniki" }).click();
+  await v(page).getByRole("button", { name: /Dodaj składniki z 2/ }).click();
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "250 g masła", "3 jajka", "mąka", "500 ml mleka"]);
+  await expect(v(page).locator(".task", { hasText: "250 g masła" }).locator(".shop-recipes")).toHaveText("(Ciasto, Naleśniki)");
+  await expect(v(page).locator(".task", { hasText: "chleb" }).locator(".shop-recipes")).toHaveCount(0);
+
+  // zmiana nazwy (przepisy w nawiasie zostaja)
+  await v(page).locator(".task", { hasText: "250 g masła" }).getByRole("button", { name: "Zmień nazwę" }).click();
+  await page.fill("#shopping-edit", "300 g masła ekstra");
+  await page.keyboard.press("Enter");
+  await expect(v(page).locator(".task", { hasText: "300 g masła ekstra" }).locator(".shop-recipes")).toHaveText("(Ciasto, Naleśniki)");
+
+  await expect.poll(async () => (await dumpDb(request)).shopping_list.find((i) => i.text === "300 g masła ekstra")?.recipes).toEqual(["Ciasto", "Naleśniki"]);
+
+  // z widoku przepisu: komunikat o polaczeniu
+  await openFromMenu(page, "Przepisy");
+  await page.fill("#recipe-search", "ciasto");
+  await v(page).locator(".recipe-row").click();
+  await v(page).getByRole("button", { name: "Dodaj składniki do zakupów" }).click();
+  await expect(page.locator("#toast")).toContainText("Dodano do listy zakupów: 3 (2 połączono"); // jajka i mąka; "masła ekstra" to już inna nazwa
+});
