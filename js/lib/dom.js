@@ -44,6 +44,9 @@ export const ICONS = {
   down: P('<polyline points="6 9 12 15 18 9"/>'),
   up: P('<polyline points="6 15 12 9 18 15"/>'),
   next: P('<polyline points="9 18 15 12 9 6"/>'),
+  undo: P('<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>'),
+  eye: P('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'),
+  eyeOff: P('<path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'),
   plus: P('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
   close: P('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
   check: P('<polyline points="20 6 9 17 4 12"/>'),
@@ -112,10 +115,18 @@ export function promptDialog(message, { placeholder = "", value = "", okLabel = 
 }
 
 let toastTimer = null;
-export function toast(message, ms = 3500) {
+/** Krotki komunikat na dole ekranu; action = { label, onClick } dodaje przycisk (np. "Cofnij"). */
+export function toast(message, ms = 3500, action = null) {
   let el = document.getElementById("toast");
   if (!el) { el = h("div", { id: "toast", role: "status", "aria-live": "polite" }); document.body.append(el); }
-  el.textContent = message;
+  el.replaceChildren(h("span", { class: "toast-text" }, message));
+  if (action) {
+    el.append(h("button", { type: "button", class: "toast-action", id: "toast-action", onclick: () => {
+      el.classList.remove("show");
+      action.onClick();
+    } }, action.label));
+  }
+  el.classList.toggle("has-action", !!action);
   el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), ms);

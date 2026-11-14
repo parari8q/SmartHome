@@ -4,6 +4,7 @@
 import { store } from "../store.js";
 import * as R from "../logic/recipes.js";
 import * as S from "../logic/shopping.js";
+import { saveShoppingUndoable, undoShopping, canUndo, onUndoChange } from "../shopping-history.js";
 import { parseRecipeText, linesToList, listToLines } from "../logic/recipe-parser.js";
 import { recognizeImages } from "../lib/ocr.js";
 import { getRecipePhoto, saveRecipePhoto, deleteRecipePhoto, compressImage } from "../photos.js";
@@ -28,7 +29,10 @@ const DRAFT_KEY = "recipe_draft";
 const data = () => store.recipes.value;
 const saveRecipes = (next) => store.recipes.set("", next);
 const shopping = () => store.shopping.value;
-const saveShopping = (next) => store.shopping.set("", next);
+/** Kazda zmiana listy zakupow da sie cofnac (opis trafia do komunikatu "Cofnij"). */
+const saveShopping = (next, label = "Zmieniono listę zakupów", opts) => saveShoppingUndoable(next, label, opts);
+const HIDE_KEY = "shopping_hide_checked";
+const hideChecked = () => localStorage.getItem(HIDE_KEY) === "1";
 
 function go(next) { screen = next; render(); }
 
@@ -186,10 +190,9 @@ const SCREENS = {
         h("button", { type: "button", class: "btn btn-primary", onclick: () => {
           const items = r.ingredients.filter((x) => !R.isHeader(x));
           const { list: next, added } = S.addToShopping(shopping(), items, r.name);
-          saveShopping(next);
-          if (items.length) notifyGroup("shopping", `składniki do „${r.name}” (${items.length})`);
           const joined = items.length - added;
-          toast(`Dodano do listy zakupów: ${items.length}` + (joined ? ` (${joined} połączono z tym, co już było na liście)` : ""), 4500);
+          saveShopping(next, `Dodano do listy zakupów: ${items.length}` + (joined ? ` (${joined} połączono z tym, co już było na liście)` : ""));
+          if (items.length) notifyGroup("shopping", `składniki do „${r.name}” (${items.length})`);
         } }, "Dodaj składniki do zakupów"),
         h("button", { type: "button", class: "btn btn-ghost", onclick: () => go("move") }, "Przenieś do innej kategorii"),
         h("button", { type: "button", class: "btn btn-ghost btn-danger-text", onclick: async () => {
@@ -231,7 +234,7 @@ const SCREENS = {
         next = S.addToShopping(next, items, r.name).list;
         if (items.length) notifyGroup("shopping", `składniki do „${r.name}” (${items.length})`);
       }
-      saveShopping(next);
+      saveShopping(next, `Dodano składniki z ${selection.size} ${plural(selection.size, "przepisu", "przepisów", "przepisów")}`);
       selection = new Set();
       go("shoppingList");
     });
@@ -248,37 +251,48 @@ const SCREENS = {
     const list = shopping();
     const nChecked = list.filter((i) => i.checked).length;
     const nDup = S.countDuplicates(list);
+    const hide = hideChecked();
     shell.setActions(
-      h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { selection = new Set(); go("shoppingPick"); } }, "Z przepisów"),
-      nChecked ? h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => saveShopping(S.removeChecked(shopping())) }, `Usuń kupione (${nChecked})`) : null);
+      h("button", { type: "button", class: "icon-btn", id: "shopping-undo", "aria-label": "Cofnij ostatnią zmianę (Ctrl+Z)", title: "Cofnij (Ctrl+Z)",
+        html: ICONS.undo, disabled: !canUndo(), onclick: () => undoShopping() }),
+      h("button", { type: "button", class: "btn btn-ghost btn-sm", onclick: () => { selection = new Set(); go("shoppingPick"); } }, "Z przepisów"));
 
     const row = (item, i) => h("div", { class: "row task" + (item.checked ? " done" : ""), dataset: { index: String(i) } },
       h("button", { type: "button", class: "check", "aria-label": item.checked ? "Odznacz" : "Odhacz", "aria-pressed": String(item.checked), html: ICONS.check,
-        onclick: () => saveShopping(S.toggleShoppingItem(shopping(), i)) }),
+        onclick: () => saveShopping(S.toggleShoppingItem(shopping(), i), (item.checked ? "Odznaczono" : "Kupione") + ` „${item.text}”`) }),
       h("span", { class: "row-main shop-text", ondblclick: (e) => startShopEdit(i, e.currentTarget) },
         h("span", { class: "row-title task-text" }, item.text),
         item.recipes?.length ? h("span", { class: "row-sub shop-recipes" }, "(" + item.recipes.join(", ") + ")") : null),
       iconButton("edit", "Zmień nazwę", (e) => startShopEdit(i, e.currentTarget.parentElement.querySelector(".shop-text")), "icon-btn icon-btn-subtle"),
-      iconButton("close", "Usuń", () => saveShopping(shopping().filter((_, j) => j !== i)), "icon-btn icon-btn-subtle"));
+      iconButton("close", "Usuń", () => saveShopping(shopping().filter((_, j) => j !== i), `Usunięto „${item.text}”`), "icon-btn icon-btn-subtle"));
 
     clear(shell.body,
       nDup ? h("button", { type: "button", class: "card-link merge-card", id: "shopping-merge", onclick: () => {
-        saveShopping(S.mergeDuplicates(shopping()));
-        toast(`Połączono ${nDup} ${plural(nDup, "powtórkę", "powtórki", "powtórek")}`);
+        saveShopping(S.mergeDuplicates(shopping()), `Połączono ${nDup} ${plural(nDup, "powtórkę", "powtórki", "powtórek")}`);
       } }, h("span", { class: "row-main" }, h("span", { class: "row-title" }, `Połącz powtarzające się produkty (${nDup})`),
         h("span", { class: "row-sub" }, "np. masło z dwóch przepisów — ilości się zsumują"))) : null,
+      nChecked ? h("div", { class: "shop-tools" },
+        h("button", { type: "button", class: "btn btn-ghost btn-sm", id: "shopping-hide", "aria-pressed": String(hide),
+          onclick: () => { localStorage.setItem(HIDE_KEY, hide ? "0" : "1"); render(); } },
+          h("span", { class: "icon", html: hide ? ICONS.eye : ICONS.eyeOff }), hide ? `Pokaż kupione (${nChecked})` : `Ukryj kupione (${nChecked})`),
+        h("button", { type: "button", class: "btn btn-ghost btn-sm btn-danger-text", id: "shopping-remove-checked",
+          onclick: () => saveShopping(S.removeChecked(shopping()), `Usunięto kupione (${nChecked})`) }, `Usuń kupione (${nChecked})`)) : null,
       !store.shopping.loaded ? emptyState("Łączenie z bazą…")
-        : list.length ? h("div", { class: "rows" }, list.map(row))
+        : list.length ? [
+          h("div", { class: "rows" }, list.map((item, i) => (hide && item.checked ? null : row(item, i)))),
+          hide && nChecked ? h("div", { class: "hidden-note" }, `${nChecked} ${plural(nChecked, "kupiony produkt ukryty", "kupione produkty ukryte", "kupionych produktów ukrytych")}`) : null,
+          hide && nChecked === list.length ? emptyState("Wszystko kupione 🎉") : null,
+        ]
         : emptyState("Lista jest pusta — dopisz coś na dole albo wybierz przepisy."),
       list.length ? h("button", { type: "button", class: "link-btn", onclick: async () => {
-        if (await confirmDialog("Wyczyścić całą listę zakupów?", { okLabel: "Wyczyść" })) saveShopping([]);
+        if (await confirmDialog("Wyczyścić całą listę zakupów? (Można to cofnąć.)", { okLabel: "Wyczyść" })) saveShopping([], "Wyczyszczono listę zakupów");
       } }, "Wyczyść całą listę") : null);
 
     const input = h("input", { type: "text", id: "shopping-input", placeholder: "Dopisz produkt (kilka po przecinku)…", autocomplete: "off" });
     const add = () => {
       const items = input.value.split(",").map((x) => x.trim()).filter(Boolean);
       if (!items.length) return;
-      saveShopping(S.addToShopping(shopping(), items).list);
+      saveShopping(S.addToShopping(shopping(), items).list, `Dodano: ${items.join(", ")}`, { quiet: true });
       for (const t of items) notifyGroup("shopping", t);
       input.value = "";
       input.focus();
@@ -299,7 +313,7 @@ function startShopEdit(index, el) {
     if (done) return;
     done = true;
     editingShopping = null;
-    if (commit && input.value.trim() && input.value.trim() !== item.text) saveShopping(S.renameItem(shopping(), index, input.value));
+    if (commit && input.value.trim() && input.value.trim() !== item.text) saveShopping(S.renameItem(shopping(), index, input.value), `Zmieniono „${item.text}” na „${input.value.trim()}”`);
     render();
   };
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
@@ -598,6 +612,17 @@ registerView({
     store.recipes.subscribe(rerender);
     store.shopping.subscribe(rerender);
     store.recipes.onStatus((st) => shell.setStatus(st.error || ""));
+    onUndoChange(() => {
+      const btn = document.getElementById("shopping-undo");
+      if (btn) btn.disabled = !canUndo();
+    });
+    // Ctrl+Z / Cmd+Z na liscie zakupow (poza polami tekstowymi, ktore maja wlasne cofanie)
+    document.addEventListener("keydown", (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== "z") return;
+      if (!shell.isOpen() || screen !== "shoppingList" || e.target.closest("input, textarea")) return;
+      e.preventDefault();
+      undoShopping();
+    });
   },
   onOpen(startScreen = "categories", openRecipeId = null) {
     cooking = false;

@@ -308,3 +308,72 @@ test("zakupy z dwóch przepisów: masło łączy się w jedno, w nawiasie przepi
   await v(page).getByRole("button", { name: "Dodaj składniki do zakupów" }).click();
   await expect(page.locator("#toast")).toContainText("Dodano do listy zakupów: 3 (2 połączono"); // jajka i mąka; "masła ekstra" to już inna nazwa
 });
+
+test("zakupy: cofanie (komunikat, przycisk, Ctrl+Z, kilka kroków) i ukrywanie kupionych", async ({ page, request }) => {
+  await resetDb(request, { shopping_list: [{ text: "mleko", checked: false }, { text: "chleb", checked: false }, { text: "masło", checked: false }] });
+  await openApp(page);
+  await openFromMenu(page, "Zakupy");
+  const items = () => v(page).locator(".task-text");
+  await expect(page.locator("#shopping-undo")).toBeDisabled();
+
+  // usuniecie -> "Cofnij" w komunikacie
+  await v(page).locator(".task", { hasText: "chleb" }).getByRole("button", { name: "Usuń" }).click();
+  await expect(items()).toHaveText(["mleko", "masło"]);
+  await expect(page.locator("#toast")).toContainText("Usunięto „chleb”");
+  await page.click("#toast-action");
+  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect.poll(async () => (await dumpDb(request)).shopping_list.length).toBe(3);
+
+  // odhaczenie + usuniecie kupionych -> dwa kroki wstecz (przycisk w naglowku i Ctrl+Z)
+  await v(page).locator(".task", { hasText: "mleko" }).getByRole("button", { name: "Odhacz" }).click();
+  await v(page).locator("#shopping-remove-checked").click();
+  await expect(items()).toHaveText(["chleb", "masło"]);
+  await page.click("#shopping-undo");
+  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect(v(page).locator(".task.done")).toHaveText(/mleko/);
+  await page.locator("body").click({ position: { x: 5, y: 300 } }); // fokus poza polem tekstowym
+  await page.keyboard.press("Control+z");
+  await expect(v(page).locator(".task.done")).toHaveCount(0);
+
+  // zmiana nazwy tez sie cofa
+  await v(page).locator(".task", { hasText: "masło" }).getByRole("button", { name: "Zmień nazwę" }).click();
+  await page.fill("#shopping-edit", "masło klarowane");
+  await page.keyboard.press("Enter");
+  await expect(items()).toHaveText(["mleko", "chleb", "masło klarowane"]);
+  await page.click("#toast-action");
+  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+
+  // ukryj kupione (zapamietane na urzadzeniu), nic nie jest usuwane
+  await v(page).locator(".task", { hasText: "chleb" }).getByRole("button", { name: "Odhacz" }).click();
+  await page.click("#shopping-hide");
+  await expect(items()).toHaveText(["mleko", "masło"]);
+  await expect(v(page).locator(".hidden-note")).toHaveText("1 kupiony produkt ukryty");
+  await expect(page.locator("#shopping-hide")).toContainText("Pokaż kupione (1)");
+  expect((await dumpDb(request)).shopping_list.length).toBe(3);
+  await page.reload();
+  await expect(page.locator("#sync")).toHaveAttribute("data-status", "live");
+  await openFromMenu(page, "Zakupy");
+  await expect(items()).toHaveText(["mleko", "masło"]);
+  await page.click("#shopping-hide");
+  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+});
+
+test("zakupy: cofanie po zmianie z innego urządzenia pyta o potwierdzenie", async ({ page, request }) => {
+  await resetDb(request, { shopping_list: [{ text: "mleko", checked: false }] });
+  await openApp(page);
+  await openFromMenu(page, "Zakupy");
+  await page.fill("#shopping-input", "chleb");
+  await page.keyboard.press("Enter");
+  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb"]);
+  await expect.poll(async () => (await dumpDb(request)).shopping_list.length).toBe(2); // wlasny zapis doszedl
+  // inne urzadzenie dopisuje cos do listy
+  await request.put(DB + "/shopping_list/2.json", { data: { text: "jajka", checked: false } });
+  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb", "jajka"]);
+  await page.click("#shopping-undo");
+  await expect(page.locator(".dialog")).toContainText("zmieniła się w międzyczasie");
+  await page.getByRole("button", { name: "Anuluj" }).click();
+  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb", "jajka"]);
+  await page.click("#shopping-undo");
+  await page.locator(".dialog [data-confirm]").click();
+  await expect(v(page).locator(".task-text")).toHaveText(["mleko"]);
+});
