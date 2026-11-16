@@ -5,7 +5,8 @@ import { store } from "../store.js";
 import { parseVoiceCommand } from "../logic/voice-parser.js";
 import { addTaskToNamedList } from "../logic/todo.js";
 import { addEvent } from "../logic/calendar.js";
-import { mergeShopping } from "../logic/recipes.js";
+import { addToShopping } from "../logic/shopping.js";
+import { saveShoppingUndoable } from "../shopping-history.js";
 import { h, ICONS } from "../lib/dom.js";
 import { parseDateKey, uid } from "../lib/util.js";
 import { notifyGroup } from "../notify.js";
@@ -40,7 +41,7 @@ export function runCommand(text, now = new Date()) {
     return { cmd, message: `✅ „${cmd.text}” → ${cmd.list}${r.created ? " (nowa lista)" : ""}` };
   }
   if (cmd.type === "shopping") {
-    store.shopping.set("", mergeShopping(store.shopping.value, cmd.items.map((text) => ({ text }))));
+    saveShoppingUndoable(addToShopping(store.shopping.value, cmd.items).list, `Dodano do zakupów: ${cmd.items.join(", ")}`, { quiet: true });
     for (const t of cmd.items) notifyGroup("shopping", t);
     return { cmd, message: `🛒 Do zakupów: ${cmd.items.join(", ")}` };
   }

@@ -1,6 +1,7 @@
 // Start aplikacji.
 
-import { connectAll, onSyncStatus, onAuthRequired } from "./store.js";
+import { connectAll, onSyncStatus, onAuthRequired, onSpaceChange } from "./store.js";
+import { clearShoppingHistory } from "./shopping-history.js";
 import { showLogin } from "./ui/login.js";
 import { installGestures, openMenu, closeMenu, openView } from "./ui/router.js";
 import { initLayout } from "./ui/layout.js";
@@ -25,6 +26,7 @@ document.getElementById("sync").addEventListener("click", () => openView("settin
 
 onSyncStatus((status) => setSyncStatus(status));
 onAuthRequired(() => showLogin());
+onSpaceChange(() => clearShoppingHistory()); // inna lista (konto/grupa) — stara historia nie pasuje
 connectAll();
 initHome();
 

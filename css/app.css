@@ -391,13 +391,16 @@ button.day:active:not(:disabled) { transform: scale(0.94); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 #toast {
-  position: fixed; z-index: 110; left: 50%; bottom: calc(24px + var(--safe-bottom));
+  position: fixed; z-index: 110; left: 50%; bottom: calc(84px + var(--safe-bottom)); /* nad paskiem z polem tekstowym */
   transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
   background: #f5f7fa; color: #10141c; font-size: 14px; font-weight: 500;
   padding: 10px 16px; border-radius: 999px; max-width: 90vw;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.has-action { display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 16px; }
+#toast.show.has-action { pointer-events: auto; } /* klikalny tylko gdy widoczny */
+#toast .toast-action { background: #10141c; color: #f5f7fa; border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 13px; white-space: nowrap; }
 
 /* ----- animacje ----- */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
@@ -497,3 +500,14 @@ code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; 
 /* wpis, do ktorego prowadzi powiadomienie */
 @keyframes highlight-pulse { 0%, 100% { box-shadow: inset 0 0 0 0 transparent; } 20%, 70% { box-shadow: inset 0 0 0 2px var(--accent); background: var(--glass-2); } }
 .flash { animation: highlight-pulse 3s ease; }
+
+/* lista zakupow: przepisy w nawiasie, laczenie powtorek */
+.shop-text { cursor: text; }
+.shop-recipes { font-size: 12px; }
+.task.done .shop-recipes { text-decoration: line-through; }
+.merge-card { background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.06)); border-color: rgba(251, 191, 36, 0.35); }
+
+/* lista zakupow: pasek z ukrywaniem kupionych */
+.shop-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shop-tools .btn .icon svg { width: 16px; height: 16px; }
+.hidden-note { font-size: 13px; color: var(--text-3); text-align: center; padding: 4px; }
