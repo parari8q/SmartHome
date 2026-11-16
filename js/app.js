@@ -7,6 +7,7 @@ import { installGestures, openMenu, closeMenu, openView } from "./ui/router.js";
 import { initLayout } from "./ui/layout.js";
 import { initHome, setSyncStatus } from "./ui/home.js";
 import { renderMenu } from "./ui/menu.js";
+import { mountTabbar } from "./ui/tabbar.js";
 import { mountVoice } from "./ui/voice.js";
 import { TEST_MODE } from "./config.js";
 import { importIntoNewRecipe } from "./ui/recipes-view.js";
@@ -18,6 +19,7 @@ import { handleDeepLink } from "./ui/deeplink.js";
 
 initLayout();
 renderMenu();
+mountTabbar();
 installGestures();
 mountVoice(document.getElementById("home"));
 document.getElementById("menu-btn").addEventListener("click", openMenu);

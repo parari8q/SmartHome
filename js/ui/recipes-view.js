@@ -38,6 +38,7 @@ function go(next) { screen = next; render(); }
 
 function render() {
   if (!shell) return;
+  if (shell.isOpen()) document.body.dataset.sub = screen; // dolny pasek: Zakupy czy Przepisy
   shell.setActions();
   shell.footer.replaceChildren();
   shell.body.classList.toggle("cooking", screen === "detail" && cooking);
