@@ -37,10 +37,8 @@ function tickClock() {
 
 function setTheme(cat, isDay) {
   const t = themeFor(cat, isDay);
-  const root = document.documentElement.style;
-  root.setProperty("--sky-top", t.top);
-  root.setProperty("--sky-bottom", t.bottom);
-  root.setProperty("--accent", t.accent);
+  // kolor pogody tylko na ikonach pogody — tlo zostaje jednolite (czytelnosc)
+  document.documentElement.style.setProperty("--wx", t.accent);
 }
 
 let weatherFailures = 0;
