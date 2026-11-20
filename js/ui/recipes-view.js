@@ -4,6 +4,7 @@
 import { store } from "../store.js";
 import * as R from "../logic/recipes.js";
 import * as S from "../logic/shopping.js";
+import { groupShopping, setItemCategory, categoryOf, CATEGORIES } from "../logic/shop-categories.js";
 import { saveShoppingUndoable, undoShopping, canUndo, onUndoChange } from "../shopping-history.js";
 import { parseRecipeText, linesToList, listToLines } from "../logic/recipe-parser.js";
 import { recognizeImages } from "../lib/ocr.js";
@@ -20,6 +21,7 @@ let catId = null, scId = null, recipeId = null;
 let selection = new Set();
 let searchQuery = "";
 let cooking = false;
+const portions = new Map(); // recipeId -> wybrana liczba porcji (tylko na tym urzadzeniu)
 const checked = new Map(); // recipeId -> Set("i3", "s1") odhaczone skladniki/kroki (tylko na tym urzadzeniu)
 let pendingImport = null;
 let editingShopping = null; // indeks edytowanej pozycji listy zakupow   // { files, text } — np. udostepnione z galerii telefonu
@@ -169,16 +171,26 @@ const SCREENS = {
         } catch (err) { toast(err.message, 6000); }
       } })));
 
-    const meta = [r.servings && `🍽 ${r.servings} ${plural(Number(r.servings) || 5, "porcja", "porcje", "porcji")}`, r.time && `⏱ ${r.time}`].filter(Boolean);
+    const base = S.servingsNumber(r.servings);
+    const cur = portions.get(r.id) ?? base;
+    const factor = base ? cur / base : 1;
+    const ingText = (ing) => S.scaleIngredient(ing, factor);
+    const setPortions = (n) => { portions.set(r.id, Math.min(50, Math.max(1, n))); render(); };
+    const meta = [!base && r.servings && `🍽 ${r.servings}`, r.time && `⏱ ${r.time}`].filter(Boolean);
+    const stepper = base ? h("div", { class: "servings", role: "group", "aria-label": "Liczba porcji" },
+      h("button", { type: "button", class: "servings-btn", id: "servings-less", "aria-label": "Mniej porcji", disabled: cur <= 1, onclick: () => setPortions(cur - 1) }, "−"),
+      h("span", { class: "servings-value", id: "servings-value", "aria-live": "polite" }, `${cur} ${plural(cur, "porcja", "porcje", "porcji")}`),
+      h("button", { type: "button", class: "servings-btn", id: "servings-more", "aria-label": "Więcej porcji", onclick: () => setPortions(cur + 1) }, "+"),
+      cur !== base ? h("button", { type: "button", class: "link-btn", onclick: () => { portions.delete(r.id); render(); } }, `z przepisu: ${base}`) : null) : null;
 
     clear(shell.body,
       photo,
-      meta.length ? h("div", { class: "chips" }, meta.map((m) => h("span", { class: "chip" }, m))) : null,
+      meta.length || stepper ? h("div", { class: "chips" }, stepper, meta.map((m) => h("span", { class: "chip" }, m))) : null,
       h("div", { class: "section-label" }, `Składniki (${r.ingredients.length})`),
       r.ingredients.length
         ? h("ul", { class: "ingredients" }, r.ingredients.map((ing, i) => R.isHeader(ing)
           ? h("li", { class: "ing-header" }, ing)
-          : h("li", { class: done.has("i" + i) ? "done" : "", onclick: (e) => toggle("i" + i, e.currentTarget) }, ing)))
+          : h("li", { class: done.has("i" + i) ? "done" : "", onclick: (e) => toggle("i" + i, e.currentTarget) }, ingText(ing))))
         : emptyState("Brak składników."),
       r.steps.length ? [
         h("div", { class: "section-label" }, `Przygotowanie (${r.steps.length} ${plural(r.steps.length, "krok", "kroki", "kroków")})`),
@@ -189,7 +201,7 @@ const SCREENS = {
       r.source ? h("p", { class: "hint" }, "Źródło: ", /^https?:\/\//.test(r.source) ? h("a", { href: r.source, target: "_blank", rel: "noopener" }, r.source) : r.source) : null,
       h("div", { class: "button-stack" },
         h("button", { type: "button", class: "btn btn-primary", onclick: () => {
-          const items = r.ingredients.filter((x) => !R.isHeader(x));
+          const items = r.ingredients.filter((x) => !R.isHeader(x)).map(ingText);
           const { list: next, added } = S.addToShopping(shopping(), items, r.name);
           const joined = items.length - added;
           saveShopping(next, `Dodano do listy zakupów: ${items.length}` + (joined ? ` (${joined} połączono z tym, co już było na liście)` : ""));
@@ -280,7 +292,7 @@ const SCREENS = {
           onclick: () => saveShopping(S.removeChecked(shopping()), `Usunięto kupione (${nChecked})`) }, `Usuń kupione (${nChecked})`)) : null,
       !store.shopping.loaded ? emptyState("Łączenie z bazą…")
         : list.length ? [
-          h("div", { class: "rows" }, list.map((item, i) => (hide && item.checked ? null : row(item, i)))),
+          ...shopGroups(list, hide, row),
           hide && nChecked ? h("div", { class: "hidden-note" }, `${nChecked} ${plural(nChecked, "kupiony produkt ukryty", "kupione produkty ukryte", "kupionych produktów ukrytych")}`) : null,
           hide && nChecked === list.length ? emptyState("Wszystko kupione 🎉") : null,
         ]
@@ -303,6 +315,18 @@ const SCREENS = {
   },
 };
 
+/** Lista zakupow podzielona na dzialy sklepu; kupione na koncu (albo ukryte). */
+function shopGroups(list, hide, row) {
+  const { groups, done } = groupShopping(list);
+  const out = groups.map((g) => h("section", { class: "shop-group", dataset: { cat: g.id } },
+    h("h3", { class: "section-label" }, g.name),
+    h("div", { class: "rows" }, g.items.map(({ item, index }) => row(item, index)))));
+  if (!hide && done.length) out.push(h("section", { class: "shop-group shop-done", dataset: { cat: "kupione" } },
+    h("h3", { class: "section-label" }, `W koszyku (${done.length})`),
+    h("div", { class: "rows" }, done.map(({ item, index }) => row(item, index)))));
+  return out;
+}
+
 /** Zmiana nazwy pozycji na liscie zakupow (w miejscu). */
 function startShopEdit(index, el) {
   const item = shopping()[index];
@@ -319,7 +343,20 @@ function startShopEdit(index, el) {
   };
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
   input.addEventListener("blur", () => finish(true));
-  el.replaceWith(input);
+  // dzial sklepu: klik w "chip" przenosi produkt (i zapisuje ewentualna nowa nazwe)
+  const current = categoryOf(item);
+  const chips = h("div", { class: "cat-chips", role: "group", "aria-label": "Dział sklepu" }, CATEGORIES.map((c) =>
+    h("button", { type: "button", class: "cat-chip" + (c.id === current ? " active" : ""), "aria-pressed": String(c.id === current), dataset: { cat: c.id },
+      onpointerdown: (e) => e.preventDefault(), // nie zabieraj fokusu polu (inaczej blur zapisze i zamknie)
+      onclick: () => {
+        done = true;
+        editingShopping = null;
+        let next = S.renameItem(shopping(), index, input.value || item.text);
+        next = setItemCategory(next, index, c.id);
+        saveShopping(next, `„${input.value.trim() || item.text}” → ${c.name}`);
+        render();
+      } }, c.name)));
+  el.replaceWith(h("div", { class: "shop-edit" }, input, chips));
   input.focus();
   input.select();
 }
