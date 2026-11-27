@@ -3,7 +3,7 @@
 // wiec po wgraniu zmian na GitHuba od razu laduje sie nowa wersja.
 // Dane z Firebase i API (pogoda, Spotify) nigdy nie sa tu zapamietywane.
 
-const CACHE = "dashboard-v5";
+const CACHE = "dashboard-v6";
 
 self.addEventListener("install", () => self.skipWaiting());
 

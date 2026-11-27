@@ -1,6 +1,6 @@
 // Grupy: kilka osob na wspolnych danych + powiadomienia ntfy dla pozostalych.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login, newContext, closeExtraContexts } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, login, newContext, closeExtraContexts, addCalendarEvent } from "./helpers.js";
 import { fileURLToPath } from "node:url";
 
 const IMG = fileURLToPath(new URL("../../icon-192.png", import.meta.url));
@@ -120,10 +120,7 @@ test("powiadomienia: dostają je pozostałe osoby (nie autor), zgrupowane, zgodn
   await ja.reload();
   await expect(ja.locator("#sync")).toHaveAttribute("data-status", "live");
   await openFromMenu(ja, "Kalendarz");
-  await ja.locator('#view-calendar .day[data-date="2026-11-12"]').click();
-  await ja.fill("#cal-time-input", "18:00");
-  await ja.fill("#cal-title-input", "Kino");
-  await ja.keyboard.press("Enter");
+  await addCalendarEvent(ja, { day: "2026-11-12", title: "Kino", time: "18:00" });
   await expect.poll(() => ja.ntfy.length, { timeout: 8000 }).toBe(1);
   expect(ja.ntfy[0].topic).toBe(onaTopic);
   expect(ja.ntfy[0].title).toBe("Kuba dodał(a) do kalendarza");
@@ -270,9 +267,7 @@ test("kliknięcie w powiadomienie otwiera właściwe miejsce (dzień w kalendarz
 
   // Ania dodaje spotkanie -> powiadomienie dla Kuby z linkiem do tego dnia i wpisu
   await openFromMenu(ona, "Kalendarz");
-  await ona.locator('#view-calendar .day[data-date="2026-11-12"]').click();
-  await ona.fill("#cal-title-input", "Dentysta");
-  await ona.keyboard.press("Enter");
+  await addCalendarEvent(ona, { day: "2026-11-12", title: "Dentysta" });
   await expect.poll(() => ona.ntfy.length, { timeout: 8000 }).toBe(1);
   const click = new URL(ona.ntfy[0].click);
   expect(click.searchParams.get("otworz")).toBe("kalendarz");
@@ -282,7 +277,7 @@ test("kliknięcie w powiadomienie otwiera właściwe miejsce (dzień w kalendarz
   // Kuba klika w powiadomienie (telefon otwiera ten adres)
   await ja.goto(click.pathname + click.search);
   await expect(ja.locator("#view-calendar")).toHaveClass(/open/);
-  await expect(ja.locator("#view-calendar .view-title")).toHaveText("Czwartek, 12 listopada 2026");
+  await expect(ja.locator("#view-calendar .cal-day-title")).toHaveText("Czwartek, 12 listopada");
   await expect(ja.locator(`#view-calendar [data-event-id="${click.searchParams.get("wpis")}"]`)).toHaveClass(/flash/);
   await expect(ja).toHaveURL(/dashboard\.html$/);
 

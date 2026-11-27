@@ -1,6 +1,6 @@
 // Najwazniejsze wymaganie: komputer i telefon widza te same dane na zywo.
 import { test, expect, devices } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB, newContext, closeExtraContexts } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, newContext, closeExtraContexts, addCalendarEvent } from "./helpers.js";
 
 test.afterEach(async () => { await closeExtraContexts(); });
 
@@ -41,9 +41,7 @@ test("ekran główny na drugim urządzeniu aktualizuje się na żywo", async ({ 
   await expect(phone.locator("#home-shopping")).toContainText("1 pozycja");
 
   await openFromMenu(pc, "Kalendarz");
-  await pc.locator('#view-calendar .day[data-date="2026-11-10"]').click();
-  await pc.fill("#cal-title-input", "Kolacja u Ani");
-  await pc.keyboard.press("Enter");
+  await addCalendarEvent(pc, { day: "2026-11-10", title: "Kolacja u Ani" });
   await expect(phone.locator("#home-events")).toContainText("Kolacja u Ani");
 });
 
@@ -55,16 +53,15 @@ test("szybkie zmiany na dwóch urządzeniach naraz — nic nie ginie", async ({ 
   await phone.locator('#view-calendar .day[data-date="2026-11-15"]').click();
   // kazdy dzien zapisywany osobno, wiec rownolegle dodawanie sie nie nadpisuje
   for (let i = 1; i <= 4; i++) {
-    await pc.fill("#cal-title-input", "PC " + i); await pc.keyboard.press("Enter");
-    await phone.fill("#cal-title-input", "Tel " + i); await phone.keyboard.press("Enter");
+    await addCalendarEvent(pc, { title: "PC " + i });
+    await addCalendarEvent(phone, { title: "Tel " + i });
   }
   await expect.poll(async () => {
     const ev = (await dumpDb(request)).calendar_events;
     return [ev["2026-11-14"]?.length, ev["2026-11-15"]?.length];
   }).toEqual([4, 4]);
-  await phone.locator("#view-calendar .view-back").click();
   await phone.locator('#view-calendar .day[data-date="2026-11-14"]').click();
-  await expect(phone.locator("#view-calendar .event")).toHaveCount(4);
+  await expect(phone.locator("#view-calendar .cal-day .event")).toHaveCount(4);
 });
 
 test("edycja w toku nie jest przerywana zmianą z innego urządzenia", async ({ browser }) => {

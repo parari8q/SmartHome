@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openApp, resetDb, dumpDb, openFromMenu, view, DB } from "./helpers.js";
+import { openApp, resetDb, dumpDb, openFromMenu, view, DB, addCalendarEvent } from "./helpers.js";
 
 test.beforeEach(async ({ request }) => { await resetDb(request); });
 
@@ -77,51 +77,110 @@ test.describe("Zadania", () => {
 // ============================================================== KALENDARZ
 
 test.describe("Kalendarz", () => {
-  test("dodawanie, sortowanie po godzinie, edycja i usuwanie wydarzeń", async ({ page, request }) => {
+  test("dodawanie z panelu, kolejność po godzinie, edycja i usuwanie z cofaniem", async ({ page, request }) => {
     await openApp(page);
     await openFromMenu(page, "Kalendarz");
     const v = view(page, "calendar");
     await expect(v.locator("#cal-month-label")).toHaveText("Listopad 2026");
-    await expect(v.locator(".day.today")).toHaveText("10");
+    await expect(v.locator(".day.today .day-num")).toHaveText("10");
+    await expect(v.locator(".cal-day-title")).toHaveText("Dziś, 10 listopada");
 
     await v.locator('.day[data-date="2026-11-12"]').click();
-    await expect(v.locator(".view-title")).toHaveText("Czwartek, 12 listopada 2026");
-    await page.fill("#cal-time-input", "18:00"); await page.fill("#cal-title-input", "Kino"); await page.keyboard.press("Enter");
-    await page.fill("#cal-time-input", "09:30"); await page.fill("#cal-title-input", "Dentysta"); await v.getByRole("button", { name: "Dodaj" }).click();
-    await page.fill("#cal-title-input", "Urodziny"); await page.keyboard.press("Enter");
-    await expect(v.locator(".event-title")).toHaveText(["Dentysta", "Kino", "Urodziny"]);
-    await expect(v.locator(".event-time").last()).toHaveText("cały dzień");
-
-    await v.locator(".event", { hasText: "Kino" }).getByRole("button", { name: "Edytuj" }).click();
-    await v.locator(".event input[type=text]").fill("Kino IMAX");
-    await page.keyboard.press("Enter");
-    await expect(v.locator(".event-title")).toContainText(["Kino IMAX"]);
-
-    await expect.poll(async () => ((await dumpDb(request)).calendar_events["2026-11-12"] || []).map((e) => e.title).sort())
-      .toEqual(["Dentysta", "Kino IMAX", "Urodziny"]);
-
-    await v.locator(".view-back").click();
+    await expect(v.locator(".cal-day-title")).toHaveText("Czwartek, 12 listopada");
+    await addCalendarEvent(page, { title: "Kino", time: "18:00" });
+    await addCalendarEvent(page, { title: "Dentysta", time: "09:30" });
+    await addCalendarEvent(page, { title: "Urodziny" });
+    await expect(v.locator(".cal-day .event-title")).toHaveText(["Urodziny", "Dentysta", "Kino"]); // caly dzien na gorze
+    await expect(v.locator(".cal-day .event").first().locator(".event-time")).toHaveText("całydzień");
+    await expect(v.locator(".cal-day .event", { hasText: "Kino" }).locator(".event-time")).toHaveText("18:0019:00"); // domyslnie 1 h
     await expect(v.locator('.day[data-date="2026-11-12"] .dots i')).toHaveCount(3);
-    await expect(v.locator(".row", { hasText: "Dentysta" })).toContainText("09:30");
 
-    await v.locator('.day[data-date="2026-11-12"]').click();
-    for (let i = 0; i < 3; i++) await v.locator(".event").first().getByRole("button", { name: "Usuń" }).click();
-    await expect(v.getByText("Nic zaplanowanego tego dnia")).toBeVisible();
+    // edycja: szczegoly -> Edytuj
+    await v.locator(".cal-day .event", { hasText: "Kino" }).click();
+    await expect(page.locator(".sheet .detail-title")).toHaveText("Kino");
+    await page.click("#cal-edit");
+    await page.fill("#cal-quick", "Kino IMAX");
+    await page.click("#cal-save");
+    await expect(v.locator(".cal-day .event-title")).toContainText(["Kino IMAX"]);
+    await expect.poll(async () => ((await dumpDb(request)).calendar_events["2026-11-12"] || []).map((e) => [e.title, e.time, e.end || ""]).sort())
+      .toEqual([["Dentysta", "09:30", "10:30"], ["Kino IMAX", "18:00", "19:00"], ["Urodziny", "", ""]]);
+
+    // usuwanie + cofnij
+    await v.locator(".cal-day .event", { hasText: "Dentysta" }).click();
+    await page.click("#cal-delete");
+    await expect(v.locator(".cal-day .event")).toHaveCount(2);
+    await expect(page.locator("#toast")).toContainText("Usunięto „Dentysta”");
+    await page.click("#toast-action");
+    await expect(v.locator(".cal-day .event")).toHaveCount(3);
+    for (const t of ["Dentysta", "Kino IMAX", "Urodziny"]) {
+      await v.locator(".cal-day .event", { hasText: t }).click();
+      await page.click("#cal-delete");
+    }
+    await expect(v.getByText("Wolny dzień · dodaj coś")).toBeVisible();
     await expect.poll(async () => (await dumpDb(request))?.calendar_events ?? null).toBeNull();
+  });
+
+  test("szybkie dodawanie tekstem, powtarzanie co tydzień i usuwanie jednego wystąpienia", async ({ page, request }) => {
+    await openApp(page);
+    await openFromMenu(page, "Kalendarz");
+    const v = view(page, "calendar");
+    await page.click("#cal-add");
+    await page.fill("#cal-quick", "jutro 18 trening");
+    await expect(page.locator("#cal-save")).toContainText(/Trening · śr\.?, 11 lis, 18:00–19:00/);
+    await page.locator('.sheet [data-repeat="week"]').click();
+    await page.click("#cal-save");
+    await expect(v.locator(".cal-day-title")).toHaveText("Jutro, 11 listopada");
+    await expect(v.locator(".cal-day .event .row-sub")).toHaveText("co tydzień");
+    for (const d of ["2026-11-18", "2026-11-25"]) await expect(v.locator(`.day[data-date="${d}"] .dots i`)).toHaveCount(1);
+    await expect(v.locator('.day[data-date="2026-11-12"] .dots i')).toHaveCount(0);
+
+    await v.locator('.day[data-date="2026-11-18"]').click();
+    await v.locator(".cal-day .event").click();
+    await page.click("#cal-delete");
+    await page.click("#cal-del-one");
+    await expect(v.locator('.day[data-date="2026-11-18"] .dots i')).toHaveCount(0);
+    await expect(v.locator('.day[data-date="2026-11-25"] .dots i')).toHaveCount(1);
+    await expect.poll(async () => (await dumpDb(request)).calendar_events["2026-11-11"][0]).toMatchObject({ title: "Trening", time: "18:00", end: "19:00", repeat: { freq: "week", days: [3] }, skip: { "2026-11-18": true } });
+  });
+
+  test("widoki Tydzień i Lista (zapamiętany wybór), wydarzenie kilkudniowe", async ({ page, request }) => {
+    await resetDb(request, { calendar_events: {
+      "2026-11-12": [{ id: "a", time: "09:30", end: "10:30", title: "Dentysta" }],
+      "2026-11-14": [{ id: "b", time: "", title: "Wyjazd", to: "2026-11-16" }],
+    } });
+    await openApp(page);
+    await openFromMenu(page, "Kalendarz");
+    const v = view(page, "calendar");
+    await expect(v.locator('.day[data-date="2026-11-15"] .dots i')).toHaveCount(1);
+    await page.click("#cal-mode-week");
+    await expect(v.locator(".week-day")).toHaveCount(7);
+    await v.locator('.week-day[data-date="2026-11-12"]').click();
+    await expect(v.locator(".tl-ev .event-title")).toHaveText("Dentysta");
+    await v.locator('.week-day[data-date="2026-11-15"]').click();
+    await expect(v.locator(".allday-ev .event-title")).toHaveText("Wyjazd");
+
+    await page.click("#cal-mode-list");
+    await expect(v.locator(".cal-group .section-label")).toHaveText([/W tym tygodniu/]); // wyjazd 14–16 zaczyna sie w tym tygodniu
+    await expect(v.locator(".cal-group .event-title")).toHaveText(["Dentysta", "Wyjazd"]);
+    await page.reload();
+    await expect(page.locator("#sync")).toHaveAttribute("data-status", "live");
+    await openFromMenu(page, "Kalendarz");
+    await expect(page.locator("#cal-mode-list")).toHaveAttribute("aria-selected", "true");
   });
 
   test("nawigacja po miesiącach i przycisk Dziś", async ({ page }) => {
     await openApp(page);
     await openFromMenu(page, "Kalendarz");
     const v = view(page, "calendar");
-    await v.getByRole("button", { name: "Następny miesiąc" }).click();
+    await v.getByRole("button", { name: "Dalej" }).click();
     await expect(v.locator("#cal-month-label")).toHaveText("Grudzień 2026");
-    await v.getByRole("button", { name: "Następny miesiąc" }).click();
+    await v.getByRole("button", { name: "Dalej" }).click();
     await expect(v.locator("#cal-month-label")).toHaveText("Styczeń 2027");
-    await v.getByRole("button", { name: "Dziś" }).click();
+    await page.click("#cal-today");
     await expect(v.locator("#cal-month-label")).toHaveText("Listopad 2026");
   });
 });
+
 
 
 
