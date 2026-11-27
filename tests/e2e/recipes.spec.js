@@ -62,7 +62,8 @@ test("screen przepisu → automatycznie nazwa, porcje, czas, składniki i kroki 
   await expect(v(page).locator(".view-title")).toHaveText("Owsianka bananowa");
   await expect(v(page).locator(".ingredients li")).toHaveText(["1 szklanka płatków owsianych", "2 szklanki mleka", "1 banan"]);
   await expect(v(page).locator(".steps li")).toHaveText(["1Płatki zalej mlekiem i gotuj około 5 minut.", "2Dodaj pokrojonego banana."]);
-  await expect(v(page).locator(".chip")).toHaveText(["🍽 2 porcje", "⏱ 15 min"]);
+  await expect(v(page).locator(".chip")).toHaveText(["⏱ 15 min"]);
+  await expect(page.locator("#servings-value")).toHaveText("2 porcje");
 
   const db = await dumpDb(request);
   const cat = db.recipes_data.categories[0];
@@ -232,12 +233,12 @@ test("lista zakupów: z przepisów, ręcznie, odhaczanie i usuwanie kupionych", 
   await v(page).locator(".check-row", { hasText: "Naleśniki" }).click();
   await v(page).locator(".check-row", { hasText: "Omlet" }).click();
   await v(page).getByRole("button", { name: /Dodaj składniki z 2/ }).click();
-  await expect(v(page).locator(".task-text")).toHaveText(["mąka", "mleko", "jajka", "ser"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "jajka", "ser", "mąka"]); // wg działów: nabiał, spiżarnia
   await page.fill("#shopping-input", "chleb, masło");
   await page.keyboard.press("Enter");
   await v(page).locator(".task", { hasText: "mleko" }).getByRole("button", { name: "Odhacz" }).click();
   await v(page).getByRole("button", { name: /Usuń kupione \(1\)/ }).click();
-  await expect(v(page).locator(".task-text")).toHaveText(["mąka", "jajka", "ser", "chleb", "masło"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "jajka", "ser", "masło", "mąka"]);
   await expect.poll(async () => (await dumpDb(request)).shopping_list.length).toBe(5);
   await v(page).locator(".view-back").click();
   await expect(page.locator("#home-shopping")).toContainText("5 pozycji do kupienia");
@@ -289,7 +290,7 @@ test("zakupy z dwóch przepisów: masło łączy się w jedno, w nawiasie przepi
   await v(page).locator(".check-row", { hasText: "Ciasto" }).click();
   await v(page).locator(".check-row", { hasText: "Naleśniki" }).click();
   await v(page).getByRole("button", { name: /Dodaj składniki z 2/ }).click();
-  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "250 g masła", "3 jajka", "mąka", "500 ml mleka"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "250 g masła", "3 jajka", "500 ml mleka", "mąka"]);
   await expect(v(page).locator(".task", { hasText: "250 g masła" }).locator(".shop-recipes")).toHaveText("(Ciasto, Naleśniki)");
   await expect(v(page).locator(".task", { hasText: "chleb" }).locator(".shop-recipes")).toHaveCount(0);
 
@@ -321,7 +322,7 @@ test("zakupy: cofanie (komunikat, przycisk, Ctrl+Z, kilka kroków) i ukrywanie k
   await expect(items()).toHaveText(["mleko", "masło"]);
   await expect(page.locator("#toast")).toContainText("Usunięto „chleb”");
   await page.click("#toast-action");
-  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect(items()).toHaveText(["chleb", "mleko", "masło"]);
   await expect.poll(async () => (await dumpDb(request)).shopping_list.length).toBe(3);
 
   // odhaczenie + usuniecie kupionych -> dwa kroki wstecz (przycisk w naglowku i Ctrl+Z)
@@ -329,19 +330,20 @@ test("zakupy: cofanie (komunikat, przycisk, Ctrl+Z, kilka kroków) i ukrywanie k
   await v(page).locator("#shopping-remove-checked").click();
   await expect(items()).toHaveText(["chleb", "masło"]);
   await page.click("#shopping-undo");
-  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect(items()).toHaveText(["chleb", "masło", "mleko"]); // kupione na dole
   await expect(v(page).locator(".task.done")).toHaveText(/mleko/);
   await page.locator("body").click({ position: { x: 5, y: 300 } }); // fokus poza polem tekstowym
   await page.keyboard.press("Control+z");
   await expect(v(page).locator(".task.done")).toHaveCount(0);
+  await expect(items()).toHaveText(["chleb", "mleko", "masło"]);
 
   // zmiana nazwy tez sie cofa
   await v(page).locator(".task", { hasText: "masło" }).getByRole("button", { name: "Zmień nazwę" }).click();
   await page.fill("#shopping-edit", "masło klarowane");
   await page.keyboard.press("Enter");
-  await expect(items()).toHaveText(["mleko", "chleb", "masło klarowane"]);
+  await expect(items()).toHaveText(["chleb", "mleko", "masło klarowane"]);
   await page.click("#toast-action");
-  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect(items()).toHaveText(["chleb", "mleko", "masło"]);
 
   // ukryj kupione (zapamietane na urzadzeniu), nic nie jest usuwane
   await v(page).locator(".task", { hasText: "chleb" }).getByRole("button", { name: "Odhacz" }).click();
@@ -355,7 +357,7 @@ test("zakupy: cofanie (komunikat, przycisk, Ctrl+Z, kilka kroków) i ukrywanie k
   await openFromMenu(page, "Zakupy");
   await expect(items()).toHaveText(["mleko", "masło"]);
   await page.click("#shopping-hide");
-  await expect(items()).toHaveText(["mleko", "chleb", "masło"]);
+  await expect(items()).toHaveText(["mleko", "masło", "chleb"]);
 });
 
 test("zakupy: cofanie po zmianie z innego urządzenia pyta o potwierdzenie", async ({ page, request }) => {
@@ -364,16 +366,48 @@ test("zakupy: cofanie po zmianie z innego urządzenia pyta o potwierdzenie", asy
   await openFromMenu(page, "Zakupy");
   await page.fill("#shopping-input", "chleb");
   await page.keyboard.press("Enter");
-  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "mleko"]);
   await expect.poll(async () => (await dumpDb(request)).shopping_list.length).toBe(2); // wlasny zapis doszedl
   // inne urzadzenie dopisuje cos do listy
   await request.put(DB + "/shopping_list/2.json", { data: { text: "jajka", checked: false } });
-  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb", "jajka"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "mleko", "jajka"]);
   await page.click("#shopping-undo");
   await expect(page.locator(".dialog")).toContainText("zmieniła się w międzyczasie");
   await page.getByRole("button", { name: "Anuluj" }).click();
-  await expect(v(page).locator(".task-text")).toHaveText(["mleko", "chleb", "jajka"]);
+  await expect(v(page).locator(".task-text")).toHaveText(["chleb", "mleko", "jajka"]);
   await page.click("#shopping-undo");
   await page.locator(".dialog [data-confirm]").click();
   await expect(v(page).locator(".task-text")).toHaveText(["mleko"]);
+});
+
+test("zakupy: działy sklepu, ręczna zmiana działu i przeliczanie porcji w przepisie", async ({ page, request }) => {
+  await resetDb(request, {
+    recipes_data: { categories: [{ id: "c", name: "K", subcategories: [{ id: "s", name: "Obiad", recipes: [
+      { id: "a", name: "Shakshuka", servings: "4", ingredients: ["4 jajka", "2 puszki pomidorów krojonych", "200 g fety", "sól do smaku"] }] }] }] },
+    shopping_list: [{ text: "cebula", checked: false }, { text: "tofu", checked: false }, { text: "chleb", checked: true }],
+  });
+  await openApp(page);
+  await openFromMenu(page, "Zakupy");
+  await expect(v(page).locator(".shop-group .section-label")).toHaveText(["Warzywa i owoce", "Inne", "W koszyku (1)"]);
+
+  // tofu -> recznie do nabialu (zapamietane w bazie)
+  await v(page).locator(".task", { hasText: "tofu" }).getByRole("button", { name: "Zmień nazwę" }).click();
+  await v(page).locator('.cat-chip[data-cat="nabial"]').click();
+  await expect(v(page).locator('.shop-group[data-cat="nabial"] .task-text')).toHaveText(["tofu"]);
+  await expect.poll(async () => (await dumpDb(request)).shopping_list.find((i) => i.text === "tofu")?.cat).toBe("nabial");
+
+  // przepis: 4 -> 2 porcje, skladniki przeliczone i takie trafiaja na liste
+  await openFromMenu(page, "Przepisy");
+  await page.fill("#recipe-search", "shak");
+  await v(page).locator(".recipe-row").click();
+  await expect(page.locator("#servings-value")).toHaveText("4 porcje");
+  await page.click("#servings-less");
+  await page.click("#servings-less");
+  await expect(page.locator("#servings-value")).toHaveText("2 porcje");
+  await expect(v(page).locator(".ingredients li")).toHaveText(["2 jajka", "1 puszka pomidorów krojonych", "100 g fety", "sól do smaku"]);
+  await v(page).getByRole("button", { name: "Dodaj składniki do zakupów" }).click();
+  await expect.poll(async () => (await dumpDb(request)).shopping_list.map((i) => i.text)).toEqual(["cebula", "tofu", "chleb", "2 jajka", "1 puszka pomidorów krojonych", "100 g fety", "sól do smaku"]);
+  await openFromMenu(page, "Zakupy");
+  await expect(v(page).locator('.shop-group[data-cat="spizarnia"] .task-text')).toHaveText(["1 puszka pomidorów krojonych", "sól do smaku"]);
+  await expect(v(page).locator('.shop-group[data-cat="nabial"] .task-text')).toHaveText(["tofu", "2 jajka", "100 g fety"]);
 });

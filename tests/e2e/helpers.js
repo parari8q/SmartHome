@@ -91,3 +91,16 @@ export async function newContext(browser, options) {
 export async function closeExtraContexts() {
   for (const c of extraContexts.splice(0)) await c.close().catch(() => {});
 }
+
+/** Kalendarz: dodaj wydarzenie w wybranym dniu przez panel "+".
+ *  time: "18:00" | null (null = caly dzien). */
+export async function addCalendarEvent(page, { day = null, title, time = null } = {}) {
+  const v = page.locator("#view-calendar");
+  if (day) await v.locator(`.day[data-date="${day}"]`).click();
+  await page.click("#cal-add");
+  await page.fill("#cal-quick", title);
+  if (time) await page.fill("#cal-time", time);
+  else await page.click("#cal-allday");
+  await page.click("#cal-save");
+  await page.locator(".sheet").waitFor({ state: "detached" });
+}

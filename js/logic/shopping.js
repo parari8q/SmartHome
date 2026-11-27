@@ -8,6 +8,7 @@
 // ==========================================================================
 
 import { asArray } from "../lib/util.js";
+import { isCategory } from "./shop-categories.js";
 
 const FRACTIONS = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3 };
 
@@ -173,7 +174,8 @@ function combine(itemA, itemB) {
   const lead = !a.amounts.length && b.amounts.length ? b : a;
   const merged = { name: lead.name, style: lead.style, amounts: addAmounts(a.amounts, b.amounts) };
   const recipes = [...new Set([...(itemA.recipes || []), ...(itemB.recipes || [])])];
-  return { text: render(merged), checked: false, ...(recipes.length ? { recipes } : {}) };
+  const cat = itemA.cat || itemB.cat; // recznie wybrany dzial zostaje
+  return { text: render(merged), checked: false, ...(recipes.length ? { recipes } : {}), ...(cat ? { cat } : {}) };
 }
 
 export function normalizeShopping(raw) {
@@ -181,7 +183,7 @@ export function normalizeShopping(raw) {
     .filter((i) => i && typeof i === "object" && String(i.text ?? "").trim())
     .map((i) => {
       const recipes = asArray(i.recipes).map(String).filter(Boolean);
-      return { text: String(i.text), checked: !!i.checked, ...(recipes.length ? { recipes } : {}) };
+      return { text: String(i.text), checked: !!i.checked, ...(recipes.length ? { recipes } : {}), ...(isCategory(i.cat) ? { cat: i.cat } : {}) };
     });
 }
 
@@ -243,4 +245,27 @@ export function removeChecked(list) {
 /** Tekst do wyswietlenia: "250 g masła (Naleśniki, Ciasto)". */
 export function displayText(item) {
   return item.recipes?.length ? `${item.text} (${item.recipes.join(", ")})` : item.text;
+}
+
+/** Przelicz skladnik na inna liczbe porcji: scaleIngredient("200 g masła", 1.5) -> "300 g masła".
+ *  Skladniki bez liczby ("sól do smaku", "2-3 ząbki") zostaja bez zmian. */
+export function scaleIngredient(raw, factor) {
+  const text = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!factor || Math.abs(factor - 1) < 1e-9) return text;
+  const p = parseIngredient(text);
+  if (!p.amounts.length || p.amounts.some((a) => !a.base)) return text;
+  const amounts = p.amounts.map((a) => {
+    let value = a.value * factor;
+    if (a.base === "g" || a.base === "ml") value = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
+    else value = Math.max(0.25, Math.round(value * 4) / 4); // kuchenne: do cwiartek
+    return { ...a, value };
+  });
+  return render({ ...p, amounts });
+}
+
+/** Liczba porcji z pola przepisu ("4", "4 porcje", "2-3") albo null. */
+export function servingsNumber(value) {
+  const m = String(value ?? "").match(/\d+(?:[.,]\d+)?/);
+  const n = m ? parseFloat(m[0].replace(",", ".")) : NaN;
+  return n > 0 && n < 100 ? n : null;
 }
