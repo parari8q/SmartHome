@@ -20,7 +20,7 @@ export function saveShoppingUndoable(next, label, { quiet = false } = {}) {
   stack.push({ before, after: next, label });
   store.shopping.set("", next);
   emit();
-  if (!quiet) toast(label, 5000, { label: "Cofnij", onClick: () => undoShopping() });
+  if (!quiet) toast(label, null, { label: "Cofnij", onClick: () => undoShopping() });
 }
 
 export async function undoShopping() {
@@ -35,7 +35,7 @@ export async function undoShopping() {
   stack.pop();
   store.shopping.set("", entry.before);
   emit();
-  toast("Cofnięto: " + entry.label, 3500, stack.size ? { label: "Cofnij jeszcze", onClick: () => undoShopping() } : null);
+  toast("Cofnięto: " + entry.label, null, stack.size ? { label: "Cofnij jeszcze", onClick: () => undoShopping() } : null);
   return true;
 }
 

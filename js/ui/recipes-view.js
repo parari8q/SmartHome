@@ -272,7 +272,7 @@ const SCREENS = {
 
     const row = (item, i) => h("div", { class: "row task" + (item.checked ? " done" : ""), dataset: { index: String(i) } },
       h("button", { type: "button", class: "check", "aria-label": item.checked ? "Odznacz" : "Odhacz", "aria-pressed": String(item.checked), html: ICONS.check,
-        onclick: () => saveShopping(S.toggleShoppingItem(shopping(), i), (item.checked ? "Odznaczono" : "Kupione") + ` „${item.text}”`) }),
+        onclick: () => saveShopping(S.toggleShoppingItem(shopping(), i), (item.checked ? "Odznaczono" : "Kupione") + ` „${item.text}”`, { quiet: true }) }),
       h("span", { class: "row-main shop-text", ondblclick: (e) => startShopEdit(i, e.currentTarget) },
         h("span", { class: "row-title task-text" }, item.text),
         item.recipes?.length ? h("span", { class: "row-sub shop-recipes" }, "(" + item.recipes.join(", ") + ")") : null),
