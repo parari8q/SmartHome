@@ -120,10 +120,24 @@ export function promptDialog(message, { placeholder = "", value = "", okLabel = 
 }
 
 let toastTimer = null;
-/** Krotki komunikat na dole ekranu; action = { label, onClick } dodaje przycisk (np. "Cofnij"). */
-export function toast(message, ms = 3500, action = null) {
+/** Krotki, dyskretny komunikat na dole ekranu; action = { label, onClick } dodaje przycisk (np. "Cofnij").
+ *  Domyslnie 2,5 s (z przyciskiem 4 s); znika po dotknieciu albo przesunieciu palcem. */
+export function toast(message, ms = null, action = null) {
+  ms = ms ?? (action ? 4000 : 2500);
   let el = document.getElementById("toast");
-  if (!el) { el = h("div", { id: "toast", role: "status", "aria-live": "polite" }); document.body.append(el); }
+  if (!el) {
+    el = h("div", { id: "toast", role: "status", "aria-live": "polite" });
+    let x0 = null, y0 = 0;
+    const hide = () => { el.classList.remove("show"); clearTimeout(toastTimer); };
+    el.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; });
+    el.addEventListener("pointerup", (e) => {
+      if (x0 == null || e.target.closest(".toast-action")) { x0 = null; return; }
+      const moved = Math.abs(e.clientX - x0) > 30 || e.clientY - y0 > 20;
+      x0 = null;
+      if (moved || e.target.closest(".toast-text")) hide(); // dotkniecie tekstu albo przesuniecie = zamknij
+    });
+    document.body.append(el);
+  }
   el.replaceChildren(h("span", { class: "toast-text" }, message));
   if (action) {
     el.append(h("button", { type: "button", class: "toast-action", id: "toast-action", onclick: () => {

@@ -72,7 +72,7 @@ function eventSub(ev, { withTime = false } = {}) {
 function applyWrites(writes, message, { notify = null } = {}) {
   const before = writes.map(([key]) => [key, cal()[key] ? clone(cal()[key]) : null]);
   for (const [key, list] of writes) store.calendar.set(key, list);
-  if (message) toast(message, 6000, { label: "Cofnij", onClick: () => { for (const [k, l] of before) store.calendar.set(k, l); } });
+  if (message) toast(message, null, { label: "Cofnij", onClick: () => { for (const [k, l] of before) store.calendar.set(k, l); } });
   if (notify) notifyGroup("calendar", notify.text, { day: notify.day, eventId: notify.eventId });
 }
 
@@ -333,11 +333,11 @@ function openEditor({ dateKey = selKey, event = null, oldKey = null } = {}) {
       who: d.who || undefined,
     };
     const writes = C.saveEvent(cal(), { oldKey: d.oldKey, newKey: d.dateKey, event: JSON.parse(JSON.stringify(out)) });
-    const when = `${shortDate(d.dateKey)}${out.time ? ", " + out.time : ""}`;
-    applyWrites(writes, d.id ? `Zapisano „${title}”` : `Dodano „${title}” — ${when}`,
+    applyWrites(writes, null, // bez komunikatu: nowy wpis widac od razu (i miga) na liscie dnia
       { notify: d.id ? null : { text: `${title} — ${C.dayLabel(d.dateKey).replace(/ \d{4}$/, "")}${out.time ? ", " + out.time : ""}`, day: d.dateKey, eventId: id } });
     closeSheet();
     select(d.dateKey);
+    flashEvent(id);
   }
 
   draw();
@@ -383,6 +383,13 @@ function openDetail(ev) {
       ev.repeat ? h("div", { class: "detail-row" }, h("span", { class: "icon", html: ICONS.repeat }),
         h("span", {}, h("b", {}, capitalize(C.repeatLabel(ev))), ev.repeat.until ? h("small", {}, "do " + shortDate(ev.repeat.until)) : null)) : null),
     actions);
+}
+
+function flashEvent(id) {
+  const el = shell.body.querySelector(`[data-event-id="${id}"]`);
+  if (!el) return;
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 1600);
 }
 
 const durText = (min) => (min % 60 ? (min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`) : `${min / 60} h`);

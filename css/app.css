@@ -517,14 +517,15 @@ button.day:hover:not(.selected) { background: var(--surface-2); }
 #toast {
   position: fixed; z-index: 110; left: 50%; bottom: calc(var(--tabbar-h) + 84px + var(--safe-bottom)); /* nad paskiem z polem tekstowym i dolnym menu */
   transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
-  background: #f3f4f6; color: #101216; font-size: 16px; font-weight: 500;
-  padding: 14px 18px; border-radius: 16px; max-width: 92vw;
+  background: #2c313b; color: #f3f4f6; font-size: 15px; font-weight: 500; line-height: 1.35;
+  padding: 10px 16px; border-radius: 14px; width: max-content; max-width: min(440px, 92vw); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-#toast.show { opacity: 1; transform: translate(-50%, 0); }
-#toast.has-action { display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 18px; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
+#toast.has-action { display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 16px; }
 #toast.show.has-action { pointer-events: auto; } /* klikalny tylko gdy widoczny */
-#toast .toast-action { background: #101216; color: #f3f4f6; border-radius: 12px; min-height: 44px; padding: 0 16px; font-weight: 600; font-size: 15px; white-space: nowrap; }
+#toast .toast-action { background: none; color: var(--accent); border-radius: 10px; min-height: 44px; padding: 0 12px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+#toast .toast-action:hover { background: rgba(255, 255, 255, 0.08); }
 
 /* ----- animacje ----- */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
