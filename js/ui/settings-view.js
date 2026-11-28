@@ -7,9 +7,12 @@ import { h, clear, ICONS, confirmDialog, promptDialog, toast } from "../lib/dom.
 import { registerView, openView } from "./router.js";
 import { getLayout, setLayout } from "./layout.js";
 import { showLogin } from "./login.js";
+import { loadAiSettings, saveAiSettings, PROVIDERS } from "../lib/ai.js";
+import { aiSetupCard } from "./ai-setup.js";
 
 let shell;
 let busy = false;
+let aiEditing = false;
 const NAMES = { todo: "Zadania", calendar: "Kalendarz", recipes: "Przepisy", shopping: "Lista zakupów" };
 const CONN = { live: "połączono", connecting: "łączenie…", offline: "brak połączenia", error: "błąd", auth: "brak dostępu" };
 
@@ -193,6 +196,29 @@ export function handleInviteLink() {
   setTimeout(tryJoin, 800);
 }
 
+let aiBox = null;
+function aiSection() {
+  // odswiezenia statusu nie moga kasowac wpisywanego klucza
+  if (aiBox && (aiBox.contains(document.activeElement) || aiBox.querySelector("#ai-key")?.value)) return aiBox;
+  const box = aiBox = h("div", { class: "ai-section" }, h("div", { class: "empty" }, "Wczytywanie…"));
+  loadAiSettings().then((ai) => {
+    if (!ai || aiEditing) {
+      box.replaceChildren(aiSetupCard({ current: ai, onSaved: () => { aiEditing = false; aiBox = null; render(); }, onCancel: ai ? () => { aiEditing = false; aiBox = null; render(); } : null }));
+      return;
+    }
+    box.replaceChildren(h("div", { class: "card" },
+      h("p", {}, `Połączono: ${PROVIDERS[ai.provider].name} · klucz •••• ${ai.key.slice(-4)}`),
+      h("div", { class: "button-row" },
+        h("button", { type: "button", class: "btn btn-ghost btn-sm", id: "ai-change", onclick: () => { aiEditing = true; aiBox = null; render(); } }, "Zmień klucz"),
+        h("button", { type: "button", class: "btn btn-ghost btn-sm", id: "ai-remove", onclick: async () => {
+          if (!(await confirmDialog("Usunąć klucz AI? Generator przepisów przestanie działać, dopóki nie dodasz nowego."))) return;
+          aiBox = null;
+          await run(() => saveAiSettings(null), "Klucz usunięty");
+        } }, "Usuń klucz"))));
+  });
+  return box;
+}
+
 function render() {
   if (!shell || !shell.isOpen()) return;
   const layout = getLayout();
@@ -204,6 +230,8 @@ function render() {
   clear(shell.body,
     accountSection(),
     groupSection(),
+    h("div", { class: "section-label" }, "Generator przepisów (AI)"),
+    aiSection(),
     h("div", { class: "section-label" }, "Układ ekranu (na tym urządzeniu)"),
     h("div", { class: "choices" }, choice("auto", "Automatycznie"), choice("portrait", "Pionowo"), choice("landscape", "Poziomo")),
     h("div", { class: "section-label" }, "Synchronizacja"),

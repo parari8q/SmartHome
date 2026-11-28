@@ -682,3 +682,29 @@ body:has(.login-backdrop) .tabbar { visibility: hidden; }
 .servings .link-btn { margin-left: 4px; }
 .chips { align-items: center; }
 .shop-edit .inline-edit { width: 100%; }
+
+/* generator przepisow (AI) */
+.recipe-top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.recipe-top .btn { width: 100%; }
+.gen { display: flex; flex-direction: column; gap: 12px; }
+.gen-group { display: flex; flex-direction: column; gap: 8px; }
+.gen-group-name { font-size: 14px; font-weight: 600; color: var(--text-3); padding-left: 2px; }
+.gen .chips { gap: 8px; }
+.chip-pair { display: inline-flex; align-items: center; gap: 2px; }
+.chip-x { width: 36px; height: 36px; border-radius: 18px; color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; }
+.chip-x svg { width: 16px; height: 16px; }
+.chip-x:hover { background: var(--surface-2); }
+.chip-add { background: none; border: 1px dashed var(--surface-3); color: var(--text-2); }
+.chip-add .icon svg { width: 16px; height: 16px; }
+.gen-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gen-row .field-label { margin: 0; }
+.gen-error { color: #fca5a5; font-size: 15px; background: #2a1c1e; border-radius: 12px; padding: 12px 14px; }
+.gen-card { gap: 10px; }
+.gen-title { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.gen-card details.more .ingredients { margin-bottom: 10px; }
+.gen-foot { text-align: center; }
+.ai-setup .choices { grid-template-columns: 1fr 1fr; }
+.ai-setup a { color: var(--accent); font-size: 15px; }
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.gen-card .chip { background: var(--surface-2); }
