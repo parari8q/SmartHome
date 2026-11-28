@@ -10,13 +10,13 @@ import { formatDateKey, parseDateKey, startOfDay, addDays, capitalize, uid, plur
 import { registerView } from "./router.js";
 import { notifyGroup } from "../notify.js";
 import { currentGroup, onGroupChange } from "../groups.js";
+import { googleOnDay, googleInRange, PERSON_COLORS, SHARED_COLOR, GOOGLE_COLOR } from "../logic/google-cal.js";
 
 const MODE_KEY = "calendar_mode";
 const MODES = [["month", "Miesiąc"], ["week", "Tydzień"], ["list", "Lista"]];
 const MONTHS = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
 const DOW = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
-const PALETTE = ["#7db2ff", "#f5a3c7", "#f5b65a", "#b39dff", "#6fd6e0", "#e3dc8c"];
-const ALL = { id: "all", name: "Wspólne", color: "#5fd39a" };
+const ALL = { id: "all", name: "Wspólne", color: SHARED_COLOR };
 const TL_START = 6, TL_END = 24, HOUR_PX = 48;
 
 let shell, fab;
@@ -36,11 +36,24 @@ const mondayOf = (key) => { const d = parseDateKey(key); return formatDateKey(ad
 export function people() {
   const g = currentGroup();
   if (!g) return [];
-  const ids = Object.keys(g.members || {}).sort((a, b) => (a === auth.uid ? -1 : b === auth.uid ? 1 : a.localeCompare(b)));
-  return [...ids.map((id, i) => ({ id, name: id === auth.uid ? "Ty" : g.profiles?.[id]?.name || `Osoba ${i + 1}`, color: PALETTE[i % PALETTE.length] })), ALL];
+  // kolejnosc po uid (nie "ja pierwszy"), zeby kazdy widzial te same kolory osob — tak samo liczy skrypt Google
+  const ids = Object.keys(g.members || {}).sort();
+  const list = ids.map((id, i) => ({ id, name: id === auth.uid ? "Ty" : g.profiles?.[id]?.name || `Osoba ${i + 1}`, color: PERSON_COLORS[i % PERSON_COLORS.length] }));
+  return [...list.filter((p) => p.id === auth.uid), ...list.filter((p) => p.id !== auth.uid), ALL]; // "Ty" pierwszy tylko na liscie
 }
 const personOf = (ev) => people().find((p) => p.id === ev.who) || null;
-const colorOf = (ev) => personOf(ev)?.color || "var(--accent)";
+const colorOf = (ev) => personOf(ev)?.color || (ev.google ? GOOGLE_COLOR : "var(--accent)");
+
+/** Wydarzenia aplikacji + z Kalendarzy Google (tylko do odczytu). */
+function dayEvents(key) {
+  return [...C.eventsOnDay(cal(), key), ...googleOnDay(store.google.value, key)]
+    .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00") || a.title.localeCompare(b.title, "pl"));
+}
+function rangeEvents(fromKey, toKey) {
+  const k = (e) => (e.occKey < fromKey ? fromKey : e.occKey);
+  return [...C.occurrences(cal(), fromKey, toKey), ...googleInRange(store.google.value, fromKey, toKey)]
+    .sort((a, b) => k(a).localeCompare(k(b)) || (a.time || "00:00").localeCompare(b.time || "00:00"));
+}
 
 // ----- etykiety --------------------------------------------------------------
 
@@ -61,7 +74,7 @@ const rangeText = (ev) => (ev.time ? ev.time + (ev.end ? " – " + ev.end : "") 
 function eventSub(ev, { withTime = false } = {}) {
   return [
     withTime ? rangeText(ev) : null,
-    personOf(ev)?.name,
+    ev.google ? (personOf(ev)?.name ? personOf(ev).name + " · Google" : "Kalendarz Google") : personOf(ev)?.name,
     ev.multi ? shortDate(ev.occKey) + " – " + shortDate(C.occurrenceEnd(ev)) : null,
     C.repeatLabel(ev) || null,
   ].filter(Boolean).join(" · ");
@@ -123,7 +136,7 @@ function renderMonth() {
     const d = addDays(start, i);
     if (i >= 35 && d.getMonth() !== m) break;
     const key = formatDateKey(d);
-    const list = C.eventsOnDay(cal(), key);
+    const list = dayEvents(key);
     cells.push(h("button", {
       type: "button", dataset: { date: key }, "aria-pressed": String(key === selKey),
       class: "day" + (key === today ? " today" : "") + (key === selKey ? " selected" : "") + (d.getMonth() !== m ? " other" : "") + (list.length ? " has-events" : "") + (key < today ? " past" : ""),
@@ -146,7 +159,7 @@ function renderMonth() {
 }
 
 function dayPanel(key) {
-  const list = C.eventsOnDay(cal(), key);
+  const list = dayEvents(key);
   return h("section", { class: "cal-day", "aria-label": "Wybrany dzień" },
     h("div", { class: "cal-day-head" },
       h("h2", { class: "cal-day-title" }, dayTitle(key)),
@@ -174,14 +187,14 @@ function renderWeek() {
   const today = todayKey();
   const goWeek = (n) => select(shiftKey(selKey, 7 * n));
   const strip = h("div", { class: "week-strip" }, days.map((key, i) => {
-    const list = C.eventsOnDay(cal(), key);
+    const list = dayEvents(key);
     return h("button", { type: "button", class: "week-day" + (key === selKey ? " selected" : "") + (key === today ? " today" : ""), dataset: { date: key }, "aria-pressed": String(key === selKey), onclick: () => select(key) },
       h("span", { class: "wd-name" }, DOW[i]),
       h("span", { class: "day-num" }, String(parseDateKey(key).getDate())),
       h("span", { class: "dots" }, list.slice(0, 3).map((ev) => h("i", { style: { background: colorOf(ev) } }))));
   }));
   onSwipe(strip, goWeek);
-  const list = C.eventsOnDay(cal(), selKey);
+  const list = dayEvents(selKey);
   const allDay = list.filter((ev) => !ev.time);
   const timed = list.filter((ev) => ev.time);
   const min = (t) => { const [hh, mm] = t.split(":").map(Number); return hh * 60 + mm; };
@@ -217,7 +230,7 @@ function renderList() {
     ["Później", shiftKey(sunday, 8), shiftKey(today, 90)],
   ].filter(([, a, b]) => a <= b);
   const ps = people();
-  const all = C.occurrences(cal(), today, shiftKey(today, 90)).filter((ev) => filterWho === "all" || (ev.who || "") === filterWho);
+  const all = rangeEvents(today, shiftKey(today, 90)).filter((ev) => filterWho === "all" || (ev.who || "") === filterWho);
   const groups = buckets.map(([name, a, b]) => {
     const items = all.filter((ev) => { const k = ev.occKey < today ? today : ev.occKey; return k >= a && k <= b; });
     return { name, single: a === b, hint: a === b ? shortDate(a) : name === "Później" ? "" : `${dayMonth(a)} – ${dayMonth(b)}`, items };
@@ -351,7 +364,23 @@ function openEditor({ dateKey = selKey, event = null, oldKey = null } = {}) {
   quick.focus();
 }
 
+function openGoogleDetail(ev) {
+  const p = personOf(ev);
+  showSheet(ev.title,
+    h("div", { class: "sheet-head" },
+      h("div", {}, h("h2", { class: "detail-title" }, ev.title),
+        h("span", { class: "detail-who" }, h("span", { class: "ev-dot", style: { background: colorOf(ev) } }), (p?.name || ev.ownerName || "") + " · z Kalendarza Google")),
+      iconButton("close", "Zamknij", closeSheet)),
+    h("div", { class: "detail-info" },
+      h("div", { class: "detail-row" }, h("span", { class: "icon", html: ICONS.clock }),
+        h("span", {}, h("b", {}, ev.multi ? `${shortDate(ev.startKey)} – ${shortDate(ev.to)}` : dayTitle(ev.dateKey)),
+          h("small", {}, rangeText(ev))))),
+    h("p", { class: "hint google-note" }, "To wydarzenie pochodzi z Kalendarza Google — zmieniasz je w Google, a tutaj zaktualizuje się samo."),
+    ev.link ? h("div", { class: "sheet-actions sheet-actions-1" }, h("a", { class: "btn btn-ghost", href: ev.link, target: "_blank", rel: "noopener" }, "Otwórz w Google")) : null);
+}
+
 function openDetail(ev) {
+  if (ev.google) return openGoogleDetail(ev);
   const p = personOf(ev);
   const actions = h("div", { class: "sheet-actions" });
   const showActions = () => actions.replaceChildren(
@@ -405,6 +434,7 @@ registerView({
     fab = h("button", { type: "button", class: "fab cal-fab", id: "cal-add", "aria-label": "Dodaj wydarzenie", html: ICONS.plus, onclick: () => openEditor({ dateKey: selKey }) });
     shell.el.append(fab);
     store.calendar.subscribe(() => { if (shell.isOpen() && !sheet) render(); });
+    store.google.subscribe(() => { if (shell.isOpen() && !sheet) render(); });
     store.calendar.onStatus((st) => shell.setStatus(st.error || ""));
     onGroupChange(() => { if (shell.isOpen() && !sheet) render(); });
   },

@@ -708,3 +708,5 @@ body:has(.login-backdrop) .tabbar { visibility: hidden; }
 .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .gen-card .chip { background: var(--surface-2); }
+.google-note { padding: 12px 20px 0; }
+.sheet-actions-1 { grid-template-columns: 1fr; }
