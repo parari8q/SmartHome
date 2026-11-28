@@ -13,6 +13,9 @@ import { h, clear, ICONS, iconButton, emptyState, confirmDialog, promptDialog, t
 import { plural, uid } from "../lib/util.js";
 import { registerView } from "./router.js";
 import { notifyGroup } from "../notify.js";
+import { generateJson, loadAiSettings } from "../lib/ai.js";
+import * as GEN from "../logic/recipe-gen.js";
+import { aiSetupCard } from "./ai-setup.js";
 
 let shell;
 let screen = "categories";
@@ -26,7 +29,12 @@ const checked = new Map(); // recipeId -> Set("i3", "s1") odhaczone skladniki/kr
 let pendingImport = null;
 let editingShopping = null; // indeks edytowanej pozycji listy zakupow   // { files, text } — np. udostepnione z galerii telefonu
 
-const FORM_SCREENS = new Set(["form", "move", "shoppingPick"]);
+const FORM_SCREENS = new Set(["form", "move", "shoppingPick", "generate"]);
+const CUSTOM_TAGS_KEY = "gen_custom_tags";
+// stan generatora (zostaje po wyjsciu z ekranu, zeby nie stracic wynikow)
+const gen = { tags: new Set(), have: "", avoid: "", servings: 4, basedOn: true, results: [], saved: new Map(), loading: false, error: "", setup: false };
+const customTags = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_TAGS_KEY) || "[]"); } catch { return []; } };
+const setCustomTags = (list) => localStorage.setItem(CUSTOM_TAGS_KEY, JSON.stringify(list));
 const DRAFT_KEY = "recipe_draft";
 const data = () => store.recipes.value;
 const saveRecipes = (next) => store.recipes.set("", next);
@@ -73,7 +81,129 @@ function newRecipe(target = {}) {
   go("form");
 }
 
+/** Kategoria "Z generatora" + podkategoria wg rodzaju posilku (tworzone w razie potrzeby). */
+function generatorTarget(tags) {
+  let d = data();
+  const CAT = "Z generatora";
+  let cat = d.categories.find((c) => c.name === CAT);
+  if (!cat) { d = R.addCategory(d, CAT); cat = d.categories.find((c) => c.name === CAT); }
+  const meal = GEN.TAG_GROUPS[0].tags.find((t) => tags.includes(t)) || "Różne";
+  let sc = cat.subcategories.find((x) => x.name === meal);
+  if (!sc) { const id = uid(); d = R.addSubcategory(d, cat.id, meal, id); sc = { id }; }
+  return { d, catId: cat.id, scId: sc.id };
+}
+
+function generatorScreen() {
+  shell.setTitle("Generator przepisów");
+  const body = h("div", { class: "gen" });
+  clear(shell.body, body);
+  loadAiSettings().then((ai) => {
+    if (!shell.isOpen() || screen !== "generate") return;
+    if (!ai || gen.setup) {
+      clear(body, aiSetupCard({ current: ai, onSaved: () => { gen.setup = false; render(); }, onCancel: ai ? () => { gen.setup = false; render(); } : null }));
+      return;
+    }
+    drawGenerator(body, ai);
+  });
+}
+
+function drawGenerator(body, ai) {
+  const tagChip = (t, custom = false) => {
+    const on = gen.tags.has(t);
+    const chip = h("button", { type: "button", class: "chip-btn" + (on ? " active" : ""), "aria-pressed": String(on), dataset: { tag: t },
+      onclick: () => { on ? gen.tags.delete(t) : gen.tags.add(t); drawGenerator(body, ai); } }, t);
+    if (!custom) return chip;
+    return h("span", { class: "chip-pair" }, chip, h("button", { type: "button", class: "chip-x", "aria-label": "Usuń kategorię " + t,
+      onclick: () => { setCustomTags(customTags().filter((x) => x !== t)); gen.tags.delete(t); drawGenerator(body, ai); }, html: ICONS.close }));
+  };
+  const all = R.allRecipes(data());
+  const have = h("input", { type: "text", id: "gen-have", value: gen.have, placeholder: "np. cukinia, feta, ryż", oninput: (e) => { gen.have = e.target.value; } });
+  const avoid = h("input", { type: "text", id: "gen-avoid", value: gen.avoid, placeholder: "np. grzyby, orzechy", oninput: (e) => { gen.avoid = e.target.value; } });
+  const run = h("button", { type: "button", class: "btn btn-primary btn-block btn-big", id: "gen-run", disabled: gen.loading, onclick: () => generate(body, ai) },
+    gen.loading ? h("span", { class: "spinner" }) : h("span", { class: "icon", html: ICONS.sparkles }),
+    gen.loading ? "Generuję przepisy…" : gen.results.length ? "Wygeneruj nowe propozycje" : "Wygeneruj 3 przepisy");
+
+  clear(body,
+    h("div", { class: "section-label" }, "Czego szukasz?"),
+    GEN.TAG_GROUPS.map((g) => h("div", { class: "gen-group" }, h("span", { class: "gen-group-name" }, g.name), h("div", { class: "chips" }, g.tags.map((t) => tagChip(t))))),
+    h("div", { class: "gen-group" }, h("span", { class: "gen-group-name" }, "Twoje kategorie"),
+      h("div", { class: "chips" }, customTags().map((t) => tagChip(t, true)),
+        h("button", { type: "button", class: "chip-btn chip-add", id: "gen-add-tag", onclick: async () => {
+          const name = (await promptDialog("Nowa kategoria do generatora", { placeholder: "np. Dieta PCOS, Na rower, Z airfryera" }) || "").trim();
+          if (!name) return;
+          if (!customTags().includes(name)) setCustomTags([...customTags(), name]);
+          gen.tags.add(name);
+          drawGenerator(body, ai);
+        } }, h("span", { class: "icon", html: ICONS.plus }), "Dodaj"))),
+    h("label", { class: "field-label", for: "gen-have" }, "Co masz w domu? (opcjonalnie)"), have,
+    h("label", { class: "field-label", for: "gen-avoid" }, "Czego unikać? (opcjonalnie)"), avoid,
+    h("div", { class: "gen-row" },
+      h("span", { class: "field-label" }, "Porcje"),
+      h("div", { class: "servings", role: "group", "aria-label": "Liczba porcji" },
+        h("button", { type: "button", class: "servings-btn", "aria-label": "Mniej porcji", disabled: gen.servings <= 1, onclick: () => { gen.servings--; drawGenerator(body, ai); } }, "−"),
+        h("span", { class: "servings-value", id: "gen-servings" }, `${gen.servings} ${plural(gen.servings, "porcja", "porcje", "porcji")}`),
+        h("button", { type: "button", class: "servings-btn", "aria-label": "Więcej porcji", onclick: () => { gen.servings++; drawGenerator(body, ai); } }, "+"))),
+    all.length ? h("button", { type: "button", class: "switch-row", id: "gen-based", role: "switch", "aria-checked": String(gen.basedOn), onclick: () => { gen.basedOn = !gen.basedOn; drawGenerator(body, ai); } },
+      h("span", {}, `W stylu moich przepisów (${all.length})`), h("span", { class: "switch" + (gen.basedOn ? " on" : "") })) : null,
+    run,
+    gen.error ? h("p", { class: "gen-error", role: "alert" }, gen.error) : null,
+    gen.results.length ? h("div", { class: "section-label" }, "Propozycje") : null,
+    gen.results.map((r, i) => resultCard(r, i, body, ai)),
+    h("p", { class: "hint gen-foot" }, `Generuje: ${ai.provider === "gemini" ? "Gemini" : "Claude"} · `,
+      h("button", { type: "button", class: "link-btn", id: "gen-change-key", onclick: () => { gen.setup = true; render(); } }, "zmień klucz")));
+}
+
+async function generate(body, ai) {
+  gen.loading = true; gen.error = "";
+  drawGenerator(body, ai);
+  const tags = [...gen.tags];
+  try {
+    const json = await generateJson({
+      ...ai, system: GEN.SYSTEM_PROMPT, schema: GEN.RECIPE_SCHEMA,
+      prompt: GEN.buildPrompt({ tags, have: gen.have, avoid: gen.avoid, servings: gen.servings, count: 3, basedOn: gen.basedOn ? R.allRecipes(data()).map((r) => r.name) : [] }),
+    });
+    const results = GEN.parseGenerated(json);
+    if (!results.length) throw new Error("AI nie zwróciło żadnego pełnego przepisu — spróbuj ponownie.");
+    gen.results = results.map((r) => ({ ...r, usedTags: tags }));
+    gen.saved = new Map();
+  } catch (err) {
+    gen.error = err.message || "Nie udało się wygenerować przepisów.";
+  }
+  gen.loading = false;
+  if (shell.isOpen() && screen === "generate") {
+    drawGenerator(body, ai);
+    body.querySelector(gen.error ? ".gen-error" : ".gen-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function resultCard(r, i, body, ai) {
+  const savedAt = gen.saved.get(i);
+  return h("article", { class: "card gen-card", dataset: { index: String(i) } },
+    h("h3", { class: "gen-title" }, r.name),
+    h("div", { class: "chips" }, [r.time, r.servings ? `${r.servings} ${plural(r.servings, "porcja", "porcje", "porcji")}` : "", `${r.ingredients.length} składn.`].filter(Boolean).map((t) => h("span", { class: "chip" }, t))),
+    r.description ? h("p", {}, r.description) : null,
+    h("details", { class: "more" }, h("summary", {}, "Składniki i przygotowanie"),
+      h("ul", { class: "ingredients" }, r.ingredients.map((x) => h("li", {}, x))),
+      h("ol", { class: "steps" }, r.steps.map((x, n) => h("li", {}, h("span", { class: "step-num" }, String(n + 1)), h("span", {}, x))))),
+    h("div", { class: "button-row" },
+      savedAt
+        ? h("button", { type: "button", class: "btn btn-ghost gen-open", onclick: () => { catId = savedAt.catId; scId = savedAt.scId; recipeId = savedAt.id; cooking = false; go("detail"); } }, h("span", { class: "icon", html: ICONS.check }), "Zapisano · otwórz")
+        : h("button", { type: "button", class: "btn btn-primary gen-save", onclick: () => {
+          const t = generatorTarget(r.usedTags);
+          const id = uid();
+          saveRecipes(R.addRecipe(t.d, t.catId, t.scId, GEN.toAppRecipe(r, { tags: r.usedTags }), id));
+          gen.saved.set(i, { catId: t.catId, scId: t.scId, id });
+          toast(`Zapisano „${r.name}” w kategorii Z generatora`);
+          drawGenerator(body, ai);
+        } }, h("span", { class: "icon", html: ICONS.plus }), "Zapisz w przepisach"),
+      h("button", { type: "button", class: "btn btn-ghost gen-shop", onclick: () => {
+        const { list: next } = S.addToShopping(shopping(), r.ingredients, r.name);
+        saveShopping(next, `Dodano do listy zakupów: ${r.ingredients.length}`);
+      } }, h("span", { class: "icon", html: ICONS.cart }), "Do zakupów")));
+}
+
 const SCREENS = {
+  generate: generatorScreen,
   categories() {
     shell.setTitle("Przepisy");
     shell.setActions(iconButton("plus", "Nowa kategoria", async () => {
@@ -111,8 +241,11 @@ const SCREENS = {
             })))));
 
     clear(shell.body,
-      h("button", { type: "button", class: "btn btn-primary btn-block btn-big", id: "recipe-new", onclick: () => newRecipe() },
-        h("span", { class: "icon", html: ICONS.plus }), "Nowy przepis"),
+      h("div", { class: "button-row recipe-top" },
+        h("button", { type: "button", class: "btn btn-primary btn-big", id: "recipe-new", onclick: () => newRecipe() },
+          h("span", { class: "icon", html: ICONS.plus }), "Nowy przepis"),
+        h("button", { type: "button", class: "btn btn-ghost btn-big", id: "recipe-generate", onclick: () => go("generate") },
+          h("span", { class: "icon", html: ICONS.sparkles }), "Wygeneruj")),
       search, results, list);
     renderSearch();
   },
@@ -637,6 +770,7 @@ export function importIntoNewRecipe({ files = [], text = "" }) {
 }
 
 const BACK = {
+  generate: "categories",
   subcategories: "categories", list: "subcategories", detail: "list", move: "detail",
   shoppingList: "categories", shoppingPick: "shoppingList",
 };
