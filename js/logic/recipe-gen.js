@@ -9,6 +9,14 @@ export const TAG_GROUPS = [
   { name: "Okazja", tags: ["Tanio", "Na imprezę", "Dla dzieci", "Na kilka dni (meal prep)", "Jednogarnkowe"] },
 ];
 
+/** Trzy rownolegle zapytania o po jednym przepisie — kazde w innym kierunku,
+ *  zeby propozycje sie roznily, a pierwsza pojawila sie szybko. */
+export const ANGLES = [
+  "Klasyczne, sprawdzone danie.",
+  "Coś mniej oczywistego, z ciekawym połączeniem smaków.",
+  "Najprostsze i najszybsze do zrobienia, z jak najmniejszą liczbą składników.",
+];
+
 export const RECIPE_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -44,7 +52,8 @@ const clean = (s, max = 300) => String(s ?? "").replace(/\s+/g, " ").trim().slic
 
 /** Zapytanie do AI na podstawie wybranych opcji. */
 export function buildPrompt({ tags = [], have = "", avoid = "", servings = 4, count = 3, basedOn = [], extra = "" } = {}) {
-  const lines = [`Zaproponuj ${count} różne przepisy, każdy na ${servings} ${servings === 1 ? "porcję" : servings < 5 ? "porcje" : "porcji"}.`];
+  const portions = `${servings} ${servings === 1 ? "porcję" : servings < 5 ? "porcje" : "porcji"}`;
+  const lines = [count === 1 ? `Zaproponuj jeden przepis na ${portions}.` : `Zaproponuj ${count} różne przepisy, każdy na ${portions}.`];
   if (tags.length) lines.push(`Wymagania (wszystkie naraz): ${tags.map((t) => clean(t, 60)).join(", ")}.`);
   if (clean(have)) lines.push(`Wykorzystaj przede wszystkim to, co jest w domu: ${clean(have, 500)}. Możesz dodać typowe podstawowe składniki.`);
   if (clean(avoid)) lines.push(`Nie używaj: ${clean(avoid, 300)}.`);
@@ -53,7 +62,7 @@ export function buildPrompt({ tags = [], have = "", avoid = "", servings = 4, co
     const names = basedOn.slice(0, 40).map((r) => clean(r, 80)).join("; ");
     lines.push(`Moje ulubione przepisy, które już mam: ${names}. Zaproponuj coś w podobnym stylu i guście, ale NIE powtarzaj tych dań.`);
   }
-  lines.push("Przepisy mają się od siebie wyraźnie różnić.");
+  if (count > 1) lines.push("Przepisy mają się od siebie wyraźnie różnić.");
   return lines.join("\n");
 }
 

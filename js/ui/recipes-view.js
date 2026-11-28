@@ -119,9 +119,11 @@ function drawGenerator(body, ai) {
   const all = R.allRecipes(data());
   const have = h("input", { type: "text", id: "gen-have", value: gen.have, placeholder: "np. cukinia, feta, ryż", oninput: (e) => { gen.have = e.target.value; } });
   const avoid = h("input", { type: "text", id: "gen-avoid", value: gen.avoid, placeholder: "np. grzyby, orzechy", oninput: (e) => { gen.avoid = e.target.value; } });
-  const run = h("button", { type: "button", class: "btn btn-primary btn-block btn-big", id: "gen-run", disabled: gen.loading, onclick: () => generate(body, ai) },
-    gen.loading ? h("span", { class: "spinner" }) : h("span", { class: "icon", html: ICONS.sparkles }),
-    gen.loading ? "Generuję przepisy…" : gen.results.length ? "Wygeneruj nowe propozycje" : "Wygeneruj 3 przepisy");
+  const run = gen.loading
+    ? h("button", { type: "button", class: "btn btn-ghost btn-block btn-big", id: "gen-stop", onclick: () => gen.abort?.abort() },
+        h("span", { class: "spinner" }), `Generuję… (${GEN.ANGLES.length - gen.pending}/${GEN.ANGLES.length}) · Przerwij`)
+    : h("button", { type: "button", class: "btn btn-primary btn-block btn-big", id: "gen-run", onclick: () => generate(body, ai) },
+        h("span", { class: "icon", html: ICONS.sparkles }), gen.results.length ? "Wygeneruj nowe propozycje" : "Wygeneruj 3 przepisy");
 
   clear(body,
     h("div", { class: "section-label" }, "Czego szukasz?"),
@@ -147,33 +149,50 @@ function drawGenerator(body, ai) {
       h("span", {}, `W stylu moich przepisów (${all.length})`), h("span", { class: "switch" + (gen.basedOn ? " on" : "") })) : null,
     run,
     gen.error ? h("p", { class: "gen-error", role: "alert" }, gen.error) : null,
-    gen.results.length ? h("div", { class: "section-label" }, "Propozycje") : null,
+    gen.results.length || gen.loading ? h("div", { class: "section-label", id: "gen-results" }, "Propozycje") : null,
     gen.results.map((r, i) => resultCard(r, i, body, ai)),
+    gen.loading ? Array.from({ length: gen.pending }, () => h("div", { class: "card gen-card gen-skeleton", "aria-hidden": "true" }, h("span", {}), h("span", {}), h("span", {}))) : null,
     h("p", { class: "hint gen-foot" }, `Generuje: ${ai.provider === "gemini" ? "Gemini" : "Claude"} · `,
       h("button", { type: "button", class: "link-btn", id: "gen-change-key", onclick: () => { gen.setup = true; render(); } }, "zmień klucz")));
 }
 
+const GEN_TIMEOUT = 90000;
+
 async function generate(body, ai) {
-  gen.loading = true; gen.error = "";
-  drawGenerator(body, ai);
   const tags = [...gen.tags];
-  try {
-    const json = await generateJson({
-      ...ai, system: GEN.SYSTEM_PROMPT, schema: GEN.RECIPE_SCHEMA,
-      prompt: GEN.buildPrompt({ tags, have: gen.have, avoid: gen.avoid, servings: gen.servings, count: 3, basedOn: gen.basedOn ? R.allRecipes(data()).map((r) => r.name) : [] }),
-    });
-    const results = GEN.parseGenerated(json);
-    if (!results.length) throw new Error("AI nie zwróciło żadnego pełnego przepisu — spróbuj ponownie.");
-    gen.results = results.map((r) => ({ ...r, usedTags: tags }));
-    gen.saved = new Map();
-  } catch (err) {
-    gen.error = err.message || "Nie udało się wygenerować przepisów.";
-  }
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort("timeout"), GEN_TIMEOUT);
+  Object.assign(gen, { loading: true, error: "", results: [], saved: new Map(), pending: GEN.ANGLES.length, abort });
+  const redraw = () => { if (shell.isOpen() && screen === "generate") drawGenerator(body, ai); };
+  redraw();
+  body.querySelector("#gen-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const basedOn = gen.basedOn ? R.allRecipes(data()).map((r) => r.name) : [];
+  const errors = [];
+  await Promise.all(GEN.ANGLES.map(async (angle) => {
+    try {
+      const json = await generateJson({
+        ...ai, signal: abort.signal, system: GEN.SYSTEM_PROMPT, schema: GEN.RECIPE_SCHEMA,
+        prompt: GEN.buildPrompt({ tags, have: gen.have, avoid: gen.avoid, servings: gen.servings, count: 1, basedOn, extra: angle }),
+      });
+      const [r] = GEN.parseGenerated(json);
+      if (r && gen.abort === abort && !gen.results.some((x) => x.name.toLowerCase() === r.name.toLowerCase())) gen.results.push({ ...r, usedTags: tags });
+    } catch (err) {
+      errors.push(err);
+    } finally {
+      if (gen.abort === abort) { gen.pending--; redraw(); }
+    }
+  }));
+  clearTimeout(timer);
+  if (gen.abort !== abort) return; // w miedzyczasie wystartowalo nowe generowanie
   gen.loading = false;
-  if (shell.isOpen() && screen === "generate") {
-    drawGenerator(body, ai);
-    body.querySelector(gen.error ? ".gen-error" : ".gen-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  gen.abort = null;
+  if (!gen.results.length) {
+    gen.error = abort.signal.aborted
+      ? (abort.signal.reason === "timeout" ? "AI odpowiada zbyt długo — spróbuj ponownie za chwilę." : "Przerwano generowanie.")
+      : (errors[0]?.message || "AI nie zwróciło żadnego pełnego przepisu — spróbuj ponownie.");
   }
+  redraw();
+  if (gen.error) body.querySelector(".gen-error")?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function resultCard(r, i, body, ai) {

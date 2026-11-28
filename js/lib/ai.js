@@ -67,15 +67,24 @@ export async function generateJson({ provider, key, system, prompt, schema, sign
   if (!key) throw new AiError("Najpierw dodaj klucz API w Ustawieniach.");
   if (provider === "gemini") {
     const model = await geminiModel(key);
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const call = (thinking) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST", signal,
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 1, responseMimeType: "application/json", responseSchema: schema },
+        generationConfig: {
+          temperature: 1, responseMimeType: "application/json", responseSchema: schema,
+          // przepis nie wymaga dlugiego "myslenia" modelu — to ono najbardziej wydluza czekanie
+          ...(thinking ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}),
+        },
       }),
     });
+    let res = await call(true);
+    if (res.status === 400) {
+      const text = await res.clone().text().catch(() => "");
+      if (/thinking/i.test(text)) res = await call(false);
+    }
     if (!res.ok) {
       if (res.status === 404) localStorage.removeItem(MODEL_CACHE); // model wycofany — nastepnym razem wybierz nowy
       throw new AiError(friendly(res.status, provider, await res.text().catch(() => "")));

@@ -7,6 +7,8 @@ import { addRecipe, normalizeRecipes, ensureDefaultTarget } from "../../js/logic
 test("zapytanie zawiera kategorie, składniki z domu, wykluczenia i ulubione przepisy", () => {
   const p = buildPrompt({ tags: ["Obiad", "Wege"], have: "cukinia, feta", avoid: "grzyby", servings: 2, count: 3, basedOn: ["Shakshuka", "Leczo"] });
   assert.match(p, /3 różne przepisy, każdy na 2 porcje/);
+  assert.match(buildPrompt({ count: 1, servings: 4, extra: "Najszybsze." }), /^Zaproponuj jeden przepis na 4 porcje\.[\s\S]*Najszybsze/);
+  assert.doesNotMatch(buildPrompt({ count: 1 }), /wyraźnie różnić/);
   assert.match(p, /Wymagania \(wszystkie naraz\): Obiad, Wege/);
   assert.match(p, /cukinia, feta/);
   assert.match(p, /Nie używaj: grzyby/);
