@@ -15,6 +15,7 @@ import { normalizeTodoLists } from "./logic/todo.js";
 import { normalizeCalendar } from "./logic/calendar.js";
 import { normalizeRecipes } from "./logic/recipes.js";
 import { normalizeShopping } from "./logic/shopping.js";
+import { normalizeGoogle } from "./logic/google-cal.js";
 
 export { auth };
 
@@ -42,6 +43,7 @@ export const store = {
   calendar: make(DB_PATHS.calendar, normalizeCalendar),
   recipes: make(DB_PATHS.recipes, normalizeRecipes),
   shopping: make(DB_PATHS.shopping, normalizeShopping),
+  google: make(DB_PATHS.google, normalizeGoogle),
 };
 
 let activeUid; // undefined = jeszcze nie uruchomiono

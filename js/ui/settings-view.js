@@ -9,11 +9,12 @@ import { getLayout, setLayout } from "./layout.js";
 import { showLogin } from "./login.js";
 import { loadAiSettings, saveAiSettings, PROVIDERS } from "../lib/ai.js";
 import { aiSetupCard } from "./ai-setup.js";
+import { FIREBASE_DB_URL, FIREBASE_API_KEY } from "../config.js";
 
 let shell;
 let busy = false;
 let aiEditing = false;
-const NAMES = { todo: "Zadania", calendar: "Kalendarz", recipes: "Przepisy", shopping: "Lista zakupów" };
+const NAMES = { todo: "Zadania", calendar: "Kalendarz", recipes: "Przepisy", shopping: "Lista zakupów", google: "Kalendarz Google" };
 const CONN = { live: "połączono", connecting: "łączenie…", offline: "brak połączenia", error: "błąd", auth: "brak dostępu" };
 
 async function run(fn, okMessage) {
@@ -219,6 +220,50 @@ function aiSection() {
   return box;
 }
 
+/** Konfiguracja dla skryptu Google Apps Script (zawiera token logowania — jak haslo). */
+export function googleSyncConfig() {
+  const space = currentSpace();
+  const g = G.currentGroup();
+  const name = g?.profiles?.[auth.uid]?.name || (auth.email || "").split("@")[0];
+  return JSON.stringify({ apiKey: FIREBASE_API_KEY, dbUrl: FIREBASE_DB_URL, refreshToken: auth.session?.refreshToken || "", uid: auth.uid, base: space.base, gid: space.gid || null, name });
+}
+
+function syncAgo(ts) {
+  if (!ts) return "jeszcze nie było";
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return "przed chwilą";
+  if (min < 60) return `${min} min temu`;
+  const d = new Date(ts);
+  return d.toLocaleString("pl-PL", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function googleSection() {
+  if (!auth.uid) return h("div", { class: "card" }, h("p", {}, "Zaloguj się, żeby połączyć kalendarz z Kalendarzem Google."));
+  const mirror = store.google.value || {};
+  const g = G.currentGroup();
+  const who = Object.keys(mirror).map((uid) => `${uid === auth.uid ? "Ty" : mirror[uid].name || g?.profiles?.[uid]?.name || "Ktoś z grupy"}: ${syncAgo(mirror[uid].updatedAt)}`);
+  const copy = (text, msg) => async () => {
+    try { await navigator.clipboard.writeText(text); toast(msg); }
+    catch { await promptDialog("Skopiuj ręcznie (Ctrl+C):", { value: text }); }
+  };
+  return h("div", { class: "card google-sync" },
+    h("p", {}, "Wydarzenia całej grupy trafiają do kalendarza „SmartHome” w Twoim Google (kolor = osoba), a wydarzenia z Twojego Kalendarza Google pokazują się tutaj. Działa samo co 10 minut przez mały skrypt na Twoim koncie Google — także gdy aplikacja jest zamknięta."),
+    h("ol", { class: "steps-mini" },
+      h("li", {}, "Kliknij „Skopiuj kod skryptu”, otwórz ", h("a", { href: "https://script.google.com/home/projects/create", target: "_blank", rel: "noopener" }, "script.google.com → Nowy projekt"), ", usuń, co tam jest, i wklej kod."),
+      h("li", {}, "Kliknij „Skopiuj konfigurację” i wklej ją w skrypcie zamiast WKLEJ_TUTAJ (między apostrofy). Zapisz (Ctrl+S)."),
+      h("li", {}, "Na górze wybierz funkcję „instaluj”, kliknij „Uruchom” i zgódź się na dostęp do kalendarza (przy „Aplikacja nie została zweryfikowana” wybierz „Zaawansowane” → „Przejdź do projektu”).")),
+    h("div", { class: "button-row" },
+      h("button", { type: "button", class: "btn btn-ghost btn-sm", id: "google-copy-code", onclick: async () => {
+        try {
+          const code = await (await fetch("tools/google-calendar-sync.gs", { cache: "no-store" })).text();
+          await copy(code, "Kod skryptu skopiowany")();
+        } catch { toast("Nie udało się pobrać kodu — spróbuj ponownie"); }
+      } }, "Skopiuj kod skryptu"),
+      h("button", { type: "button", class: "btn btn-primary btn-sm", id: "google-copy-config", onclick: copy(googleSyncConfig(), "Konfiguracja skopiowana — wklej ją w skrypcie") }, "Skopiuj konfigurację")),
+    h("p", { class: "hint" }, "Konfiguracja zawiera Twój klucz logowania do aplikacji — nie wysyłaj jej nikomu. Po zmianie grupy skopiuj ją jeszcze raz."),
+    who.length ? h("p", { class: "hint", id: "google-status" }, "Ostatnia synchronizacja — " + who.join(" · ")) : null);
+}
+
 function render() {
   if (!shell || !shell.isOpen()) return;
   const layout = getLayout();
@@ -230,6 +275,8 @@ function render() {
   clear(shell.body,
     accountSection(),
     groupSection(),
+    h("div", { class: "section-label" }, "Kalendarz Google"),
+    googleSection(),
     h("div", { class: "section-label" }, "Generator przepisów (AI)"),
     aiSection(),
     h("div", { class: "section-label" }, "Układ ekranu (na tym urządzeniu)"),

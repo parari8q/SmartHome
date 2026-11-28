@@ -121,3 +121,17 @@ Podmień `TWOJE_UID` (w 4 miejscach na dole, tylko do jednorazowego przeniesieni
 Co robią: każdy czyta i zapisuje tylko swoje dane osobiste. Dane grupy widzą i zmieniają tylko jej
 członkowie. Do grupy można dołączyć wyłącznie z aktualnym kodem zaproszenia. Usuwać innych, zmieniać
 nazwę i kod może tylko zakładający.
+
+## Kalendarz Google (synchronizacja w obie strony)
+
+Synchronizację wykonuje skrypt [`tools/google-calendar-sync.gs`](tools/google-calendar-sync.gs) uruchamiany
+w Google Apps Script na koncie Google każdego członka grupy (co 10 minut, także gdy aplikacja jest zamknięta):
+
+- wydarzenia aplikacji (całej grupy) → kalendarz „SmartHome” w Google; kolor wydarzenia = osoba
+  (kolejność kolorów = posortowane uid członków grupy, tak samo jak w aplikacji),
+- wydarzenia z głównego Kalendarza Google → `…/calendar_google/<uid>` w bazie → widoczne w aplikacji (tylko do odczytu).
+
+Instalacja: Ustawienia → Kalendarz Google → „Skopiuj kod skryptu” (wklej w nowym projekcie na script.google.com),
+„Skopiuj konfigurację” (wklej w `KONFIGURACJA`), uruchom funkcję `instaluj`. Konfiguracja zawiera token
+logowania (refresh token Firebase) — traktuj ją jak hasło. Reguły bazy nie wymagają zmian
+(`calendar_google` leży w `users/<uid>` albo `groups/<gid>/data`).

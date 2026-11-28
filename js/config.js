@@ -25,6 +25,7 @@ export const DB_PATHS = {
   calendar: "calendar_events",
   recipes: "recipes_data",
   shopping: "shopping_list",
+  google: "calendar_google", // kopia wydarzen z Kalendarzy Google czlonkow (wpisuje skrypt Apps Script)
 };
 
 export const TEST_MODE = !!testOverrides.dbUrl;
